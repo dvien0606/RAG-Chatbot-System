@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using RagChatbotSystem.Business.DTOs;
@@ -17,11 +18,85 @@ namespace RagChatbotSystem.Business.Services
     {
         private readonly AppDbContext _context;
         private readonly IRagApiClient _ragApiClient;
+        private readonly IFileStorageService _fileStorageService;
 
-        public DocumentService(AppDbContext context, IRagApiClient ragApiClient)
+        public DocumentService(AppDbContext context, IRagApiClient ragApiClient, IFileStorageService fileStorageService)
         {
             _context = context;
             _ragApiClient = ragApiClient;
+            _fileStorageService = fileStorageService;
+        }
+
+        public async Task<IReadOnlyList<DocumentDto>> GetDocumentsByDatasetAsync(Guid datasetId, CancellationToken cancellationToken = default)
+        {
+            var datasetExists = await _context.Datasets.AnyAsync(d => d.DatasetId == datasetId, cancellationToken);
+            if (!datasetExists)
+            {
+                throw new KeyNotFoundException("Dataset was not found.");
+            }
+
+            return await _context.Documents
+                .AsNoTracking()
+                .Where(d => d.DatasetId == datasetId)
+                .OrderByDescending(d => d.UploadedAt)
+                .Select(d => ToDto(d))
+                .ToListAsync(cancellationToken);
+        }
+
+        public async Task<DocumentDto?> GetDocumentAsync(Guid documentId, CancellationToken cancellationToken = default)
+        {
+            return await _context.Documents
+                .AsNoTracking()
+                .Where(d => d.DocumentId == documentId)
+                .Select(d => ToDto(d))
+                .FirstOrDefaultAsync(cancellationToken);
+        }
+
+        public async Task<DocumentDto> UploadDocumentAsync(Guid datasetId, Guid userId, Stream fileStream, string fileName, long fileSize, CancellationToken cancellationToken = default)
+        {
+            if (string.IsNullOrWhiteSpace(fileName))
+            {
+                throw new ArgumentException("File name is required.", nameof(fileName));
+            }
+
+            if (fileSize <= 0)
+            {
+                throw new ArgumentException("File must not be empty.", nameof(fileSize));
+            }
+
+            var datasetExists = await _context.Datasets.AnyAsync(d => d.DatasetId == datasetId, cancellationToken);
+            if (!datasetExists)
+            {
+                throw new InvalidOperationException("Dataset was not found.");
+            }
+
+            var userExists = await _context.Users.AnyAsync(u => u.UserId == userId, cancellationToken);
+            if (!userExists)
+            {
+                throw new InvalidOperationException("Uploader user was not found.");
+            }
+
+            var storedFile = await _fileStorageService.SaveDatasetFileAsync(datasetId, fileStream, fileName, fileSize, cancellationToken);
+            var now = DateTime.UtcNow;
+
+            var document = new Document
+            {
+                DocumentId = Guid.NewGuid(),
+                DatasetId = datasetId,
+                FileName = storedFile.OriginalFileName,
+                FilePath = storedFile.RelativePath,
+                FileType = storedFile.FileType,
+                FileSize = storedFile.FileSize,
+                Status = "Uploaded",
+                UploadedBy = userId,
+                UploadedAt = now,
+                UpdatedAt = now
+            };
+
+            _context.Documents.Add(document);
+            await _context.SaveChangesAsync(cancellationToken);
+
+            return ToDto(document);
         }
 
         public async Task<Document?> ProcessAndIndexDocumentAsync(Guid datasetId, Guid userId, string fileName, string rawText)
@@ -190,8 +265,24 @@ namespace RagChatbotSystem.Business.Services
             // 2. Xóa khỏi cơ sở dữ liệu Postgres (EF Core tự động xóa cascade)
             _context.Documents.Remove(document);
             await _context.SaveChangesAsync();
+            await _fileStorageService.DeleteFileIfExistsAsync(document.FilePath);
 
             return true;
+        }
+
+        private static DocumentDto ToDto(Document document)
+        {
+            return new DocumentDto(
+                document.DocumentId,
+                document.DatasetId,
+                document.FileName,
+                document.FilePath,
+                document.FileType,
+                document.FileSize,
+                document.Status,
+                document.UploadedBy,
+                document.UploadedAt,
+                document.UpdatedAt);
         }
     }
 }
