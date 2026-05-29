@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.EntityFrameworkCore;
 using RagChatbotSystem.DataAccess.Data;
 using Pgvector;
@@ -13,6 +14,28 @@ namespace RagChatbotSystem.Presentation
             var builder = WebApplication.CreateBuilder(args);
 
             builder.Services.AddControllersWithViews();
+
+            builder.Services
+                .AddAuthentication(options =>
+                {
+                    options.DefaultScheme = CookieAuthenticationDefaults.AuthenticationScheme;
+                    options.DefaultChallengeScheme = "Google";
+                })
+                .AddCookie(options =>
+                {
+                    options.LoginPath = "/api/auth/google-login";
+                    options.AccessDeniedPath = "/api/auth/access-denied";
+                    options.ExpireTimeSpan = TimeSpan.FromHours(8);
+                    options.SlidingExpiration = true;
+                })
+                .AddGoogle("Google", options =>
+                {
+                    options.ClientId = builder.Configuration["Authentication:Google:ClientId"] ?? string.Empty;
+                    options.ClientSecret = builder.Configuration["Authentication:Google:ClientSecret"] ?? string.Empty;
+                    options.SaveTokens = false;
+                });
+
+            builder.Services.AddAuthorization();
 
             // Cấu hình kết nối PostgreSQL với pgvector
             builder.Services.AddDbContext<AppDbContext>(options =>
@@ -43,6 +66,7 @@ namespace RagChatbotSystem.Presentation
             });
 
             // Đăng ký các dịch vụ Business Layer
+            builder.Services.AddScoped<IAccountService, AccountService>();
             builder.Services.AddScoped<IDocumentService, DocumentService>();
             builder.Services.AddScoped<IChatService, ChatService>();
 
@@ -54,11 +78,16 @@ namespace RagChatbotSystem.Presentation
                 app.UseHsts();
             }
 
-            app.UseHttpsRedirection();
+            if (!app.Environment.IsDevelopment())
+            {
+                app.UseHttpsRedirection();
+            }
 
             app.UseStaticFiles();
 
             app.UseRouting();
+
+            app.UseAuthentication();
 
             app.UseAuthorization();
 
