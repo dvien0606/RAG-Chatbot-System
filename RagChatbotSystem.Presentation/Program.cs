@@ -43,11 +43,19 @@ namespace RagChatbotSystem.Presentation
                 });
             });
 
-            builder.Services
+            var googleClientId = builder.Configuration["Authentication:Google:ClientId"];
+            var googleClientSecret = builder.Configuration["Authentication:Google:ClientSecret"];
+            var hasGoogleAuthentication = !string.IsNullOrWhiteSpace(googleClientId)
+                && !string.IsNullOrWhiteSpace(googleClientSecret);
+
+            var authenticationBuilder = builder.Services
                 .AddAuthentication(options =>
                 {
                     options.DefaultScheme = CookieAuthenticationDefaults.AuthenticationScheme;
-                    options.DefaultChallengeScheme = "Google";
+                    if (hasGoogleAuthentication)
+                    {
+                        options.DefaultChallengeScheme = "Google";
+                    }
                 })
                 .AddCookie(options =>
                 {
@@ -55,13 +63,17 @@ namespace RagChatbotSystem.Presentation
                     options.AccessDeniedPath = "/api/auth/access-denied";
                     options.ExpireTimeSpan = TimeSpan.FromHours(8);
                     options.SlidingExpiration = true;
-                })
-                .AddGoogle("Google", options =>
+                });
+
+            if (hasGoogleAuthentication)
+            {
+                authenticationBuilder.AddGoogle("Google", options =>
                 {
-                    options.ClientId = builder.Configuration["Authentication:Google:ClientId"] ?? string.Empty;
-                    options.ClientSecret = builder.Configuration["Authentication:Google:ClientSecret"] ?? string.Empty;
+                    options.ClientId = googleClientId!;
+                    options.ClientSecret = googleClientSecret!;
                     options.SaveTokens = false;
                 });
+            }
 
             builder.Services.AddAuthorization(options =>
             {

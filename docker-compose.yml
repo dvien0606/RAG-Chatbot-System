@@ -44,6 +44,7 @@ services:
       Groq__ApiKey: ${GROQ_API_KEY:-}
       Authentication__Google__ClientId: ${GOOGLE_CLIENT_ID:-}
       Authentication__Google__ClientSecret: ${GOOGLE_CLIENT_SECRET:-}
+      Authentication__AdminEmails__0: ${ADMIN_EMAIL_0:-votanthinhcri28@gmail.com}
     ports:
       - "5259:8080"
     depends_on:

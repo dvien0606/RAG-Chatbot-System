@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using RagChatbotSystem.Business.Constants;
@@ -17,7 +19,7 @@ namespace RagChatbotSystem.Business.Services
             _context = context;
         }
 
-        public async Task<User> FindOrCreateGoogleUserAsync(string email, string fullName)
+        public async Task<User> FindOrCreateGoogleUserAsync(string email, string fullName, IEnumerable<string>? adminEmails = null)
         {
             if (string.IsNullOrWhiteSpace(email))
             {
@@ -25,11 +27,21 @@ namespace RagChatbotSystem.Business.Services
             }
 
             var normalizedEmail = email.Trim().ToLowerInvariant();
+            var role = IsAdminEmail(normalizedEmail, adminEmails)
+                ? UserRoles.Admin
+                : UserRoles.User;
+
             var user = await _context.Users
                 .FirstOrDefaultAsync(u => u.Email.ToLower() == normalizedEmail);
 
             if (user != null)
             {
+                if (role == UserRoles.Admin && !string.Equals(user.Role, UserRoles.Admin, StringComparison.OrdinalIgnoreCase))
+                {
+                    user.Role = UserRoles.Admin;
+                    await _context.SaveChangesAsync();
+                }
+
                 return user;
             }
 
@@ -38,7 +50,7 @@ namespace RagChatbotSystem.Business.Services
                 UserId = Guid.NewGuid(),
                 Email = normalizedEmail,
                 FullName = string.IsNullOrWhiteSpace(fullName) ? normalizedEmail : fullName.Trim(),
-                Role = UserRoles.User,
+                Role = role,
                 CreatedAt = DateTime.UtcNow
             };
 
@@ -51,6 +63,14 @@ namespace RagChatbotSystem.Business.Services
         public Task<User?> GetUserByIdAsync(Guid userId)
         {
             return _context.Users.FirstOrDefaultAsync(u => u.UserId == userId);
+        }
+
+        private static bool IsAdminEmail(string normalizedEmail, IEnumerable<string>? adminEmails)
+        {
+            return adminEmails?
+                .Where(email => !string.IsNullOrWhiteSpace(email))
+                .Select(email => email.Trim().ToLowerInvariant())
+                .Contains(normalizedEmail) == true;
         }
     }
 }

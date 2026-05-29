@@ -14,15 +14,24 @@ namespace RagChatbotSystem.Presentation.Controllers
     {
         private const string GoogleScheme = "Google";
         private readonly IAccountService _accountService;
+        private readonly IConfiguration _configuration;
 
-        public AccountController(IAccountService accountService)
+        public AccountController(IAccountService accountService, IConfiguration configuration)
         {
             _accountService = accountService;
+            _configuration = configuration;
         }
 
         [HttpGet("google-login")]
         public IActionResult GoogleLogin(string? returnUrl = null)
         {
+            if (!IsGoogleAuthenticationConfigured())
+            {
+                return StatusCode(
+                    StatusCodes.Status503ServiceUnavailable,
+                    "Google authentication is not configured. Set Authentication:Google:ClientId and Authentication:Google:ClientSecret.");
+            }
+
             var redirectUrl = Url.Action(nameof(GoogleCallback), "Account", new { returnUrl });
             var properties = new AuthenticationProperties
             {
@@ -50,7 +59,15 @@ namespace RagChatbotSystem.Presentation.Controllers
                 return BadRequest("Google account does not provide an email.");
             }
 
-            var user = await _accountService.FindOrCreateGoogleUserAsync(email, fullName ?? email);
+            var adminEmails = _configuration
+                .GetSection("Authentication:AdminEmails")
+                .GetChildren()
+                .Select(section => section.Value)
+                .Where(value => !string.IsNullOrWhiteSpace(value))
+                .Select(value => value!)
+                .ToArray();
+
+            var user = await _accountService.FindOrCreateGoogleUserAsync(email, fullName ?? email, adminEmails);
             var claims = new List<Claim>
             {
                 new Claim(ClaimTypes.NameIdentifier, user.UserId.ToString()),
@@ -112,6 +129,12 @@ namespace RagChatbotSystem.Presentation.Controllers
         public IActionResult AccessDenied()
         {
             return StatusCode(StatusCodes.Status403Forbidden, "Access denied.");
+        }
+
+        private bool IsGoogleAuthenticationConfigured()
+        {
+            return !string.IsNullOrWhiteSpace(_configuration["Authentication:Google:ClientId"])
+                && !string.IsNullOrWhiteSpace(_configuration["Authentication:Google:ClientSecret"]);
         }
     }
 }
