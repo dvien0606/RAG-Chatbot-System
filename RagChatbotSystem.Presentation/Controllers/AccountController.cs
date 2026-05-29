@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using RagChatbotSystem.Business.Interfaces;
+using RagChatbotSystem.Presentation.Authorization;
 
 namespace RagChatbotSystem.Presentation.Controllers
 {
@@ -71,7 +72,7 @@ namespace RagChatbotSystem.Presentation.Controllers
             return RedirectToAction("Index", "Home");
         }
 
-        [Authorize]
+        [Authorize(Policy = AuthPolicies.AdminOrUser)]
         [HttpPost("logout")]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Logout()
@@ -80,7 +81,7 @@ namespace RagChatbotSystem.Presentation.Controllers
             return RedirectToAction("Index", "Home");
         }
 
-        [Authorize]
+        [Authorize(Policy = AuthPolicies.AdminOrUser)]
         [HttpGet("me")]
         public async Task<IActionResult> Me()
         {

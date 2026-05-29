@@ -1,6 +1,7 @@
 using System;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
+using RagChatbotSystem.Business.Constants;
 using RagChatbotSystem.Business.Interfaces;
 using RagChatbotSystem.DataAccess.Data;
 using RagChatbotSystem.DataAccess.Models;
@@ -9,7 +10,6 @@ namespace RagChatbotSystem.Business.Services
 {
     public class AccountService : IAccountService
     {
-        private const string DefaultRole = "user";
         private readonly AppDbContext _context;
 
         public AccountService(AppDbContext context)
@@ -38,7 +38,7 @@ namespace RagChatbotSystem.Business.Services
                 UserId = Guid.NewGuid(),
                 Email = normalizedEmail,
                 FullName = string.IsNullOrWhiteSpace(fullName) ? normalizedEmail : fullName.Trim(),
-                Role = DefaultRole,
+                Role = UserRoles.User,
                 CreatedAt = DateTime.UtcNow
             };
 
