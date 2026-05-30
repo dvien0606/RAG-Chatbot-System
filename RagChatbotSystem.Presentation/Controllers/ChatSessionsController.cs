@@ -21,6 +21,13 @@ namespace RagChatbotSystem.Presentation.Controllers
             _chatService = chatService;
         }
 
+        [HttpGet]
+        public async Task<IActionResult> GetSessions([FromQuery] Guid? userId, [FromQuery] Guid? datasetId, CancellationToken cancellationToken)
+        {
+            var sessions = await _chatSessionService.GetSessionsAsync(userId, datasetId, cancellationToken);
+            return Ok(sessions);
+        }
+
         [HttpGet("{sessionId:guid}")]
         public async Task<IActionResult> GetSession(Guid sessionId, CancellationToken cancellationToken)
         {
@@ -59,14 +66,34 @@ namespace RagChatbotSystem.Presentation.Controllers
         [HttpPost("{sessionId:guid}/messages")]
         public async Task<IActionResult> SendMessage(Guid sessionId, [FromBody] SendChatMessageRequest request)
         {
+            var question = request.Question ?? request.Content;
+            if (string.IsNullOrWhiteSpace(question))
+            {
+                return BadRequest(new { message = "Message content is required." });
+            }
+
             try
             {
-                var response = await _chatService.SendChatMessageAsync(sessionId, request.Question);
+                var response = await _chatService.SendChatMessageAsync(sessionId, question.Trim());
                 return Ok(response);
             }
             catch (ArgumentException ex)
             {
                 return BadRequest(new { message = ex.Message });
+            }
+        }
+
+        [HttpGet("messages/{messageId:guid}/citations")]
+        public async Task<IActionResult> GetCitations(Guid messageId, CancellationToken cancellationToken)
+        {
+            try
+            {
+                var citations = await _chatSessionService.GetCitationsAsync(messageId, cancellationToken);
+                return Ok(citations);
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new { message = ex.Message });
             }
         }
     }

@@ -20,6 +20,32 @@ namespace RagChatbotSystem.Business.Services
             _context = context;
         }
 
+        public async Task<IReadOnlyList<ChatSessionDto>> GetSessionsAsync(Guid? userId = null, Guid? datasetId = null, CancellationToken cancellationToken = default)
+        {
+            var query = _context.ChatSessions.AsNoTracking();
+
+            if (userId.HasValue)
+            {
+                query = query.Where(s => s.UserId == userId.Value);
+            }
+
+            if (datasetId.HasValue)
+            {
+                query = query.Where(s => s.DatasetId == datasetId.Value);
+            }
+
+            return await query
+                .OrderByDescending(s => s.UpdatedAt)
+                .Select(s => new ChatSessionDto(
+                    s.SessionId,
+                    s.UserId,
+                    s.DatasetId,
+                    s.Title,
+                    s.StartedAt,
+                    s.UpdatedAt))
+                .ToListAsync(cancellationToken);
+        }
+
         public async Task<ChatSessionDto?> GetSessionAsync(Guid sessionId, CancellationToken cancellationToken = default)
         {
             return await _context.ChatSessions
@@ -84,6 +110,31 @@ namespace RagChatbotSystem.Business.Services
                     m.Role,
                     m.Content,
                     m.CreatedAt))
+                .ToListAsync(cancellationToken);
+        }
+
+        public async Task<IReadOnlyList<CitationDto>> GetCitationsAsync(Guid messageId, CancellationToken cancellationToken = default)
+        {
+            var messageExists = await _context.ChatMessages.AnyAsync(m => m.MessageId == messageId, cancellationToken);
+            if (!messageExists)
+            {
+                throw new KeyNotFoundException("Chat message was not found.");
+            }
+
+            return await _context.Citations
+                .AsNoTracking()
+                .Where(c => c.MessageId == messageId)
+                .OrderBy(c => c.CreatedAt)
+                .Select(c => new CitationDto(
+                    c.CitationId,
+                    c.MessageId,
+                    c.ChunkId,
+                    c.DocumentId,
+                    c.Document.FileName,
+                    c.PageNumber,
+                    c.QuoteText,
+                    c.SourceLabel,
+                    c.CreatedAt))
                 .ToListAsync(cancellationToken);
         }
 

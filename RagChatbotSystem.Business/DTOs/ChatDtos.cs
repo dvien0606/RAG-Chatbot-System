@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 
 namespace RagChatbotSystem.Business.DTOs
 {
@@ -15,6 +16,10 @@ namespace RagChatbotSystem.Business.DTOs
         Guid DatasetId,
         string? Title);
 
+    public sealed record SendChatMessageRequest(
+        string? Content,
+        string? Question);
+
     public sealed record ChatMessageDto(
         Guid MessageId,
         Guid SessionId,
@@ -22,13 +27,12 @@ namespace RagChatbotSystem.Business.DTOs
         string Content,
         DateTime CreatedAt);
 
-    public sealed record SendChatMessageRequest(string Question);
-
     public sealed record CitationDto(
         Guid CitationId,
         Guid MessageId,
-        Guid DocumentId,
         Guid ChunkId,
+        Guid DocumentId,
+        string? FileName,
         int PageNumber,
         string QuoteText,
         string? SourceLabel,
