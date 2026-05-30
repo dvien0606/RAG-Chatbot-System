@@ -317,7 +317,8 @@
   };
 
   const loadDatasets = async () => {
-    state.datasets = await api("/api/datasets");
+    const query = state.user ? `?createdBy=${state.user.userId}` : "";
+    state.datasets = await api(`/api/datasets${query}`);
     if (state.selectedDatasetId && !state.datasets.some((item) => item.datasetId === state.selectedDatasetId)) {
       state.selectedDatasetId = null;
       localStorage.removeItem("ragDatasetId");
