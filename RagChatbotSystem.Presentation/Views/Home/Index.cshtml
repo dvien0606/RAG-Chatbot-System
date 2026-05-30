@@ -1,8 +1,124 @@
-﻿@{
-    ViewData["Title"] = "Home Page";
+@{
+    ViewData["Title"] = "Workspace";
 }
 
-<div class="text-center">
-    <h1 class="display-4">Welcome</h1>
-    <p>Learn about <a href="https://learn.microsoft.com/aspnet/core">building Web apps with ASP.NET Core</a>.</p>
-</div>
+<section class="workspace" data-rag-app>
+    <aside class="workspace-panel management-panel" aria-label="Dataset management">
+        <div class="panel-header">
+            <div>
+                <p class="eyebrow">Management</p>
+                <h1>Knowledge workspace</h1>
+            </div>
+            <button class="icon-button" type="button" data-refresh title="Refresh workspace" aria-label="Refresh workspace">
+                <span aria-hidden="true">R</span>
+            </button>
+        </div>
+
+        <form class="setup-form" data-user-form>
+            <label for="userName">User</label>
+            <div class="input-row">
+                <input id="userName" name="fullName" type="text" autocomplete="name" placeholder="Nguyen Van A" required />
+                <button type="submit">Use</button>
+            </div>
+            <input name="email" type="email" autocomplete="email" placeholder="you@example.com" required />
+            <p class="helper-text" data-user-status>Set a test user before creating datasets.</p>
+        </form>
+
+        <div class="section-block">
+            <div class="section-title">
+                <h2>Datasets</h2>
+                <span data-dataset-count>0</span>
+            </div>
+            <form class="create-form" data-dataset-form>
+                <input name="name" type="text" placeholder="Dataset name" required />
+                <textarea name="description" rows="2" placeholder="Short description"></textarea>
+                <button type="submit">Create dataset</button>
+            </form>
+            <div class="dataset-list" data-dataset-list aria-live="polite"></div>
+        </div>
+
+        <div class="section-block">
+            <div class="section-title">
+                <h2>Documents</h2>
+                <span data-document-count>0</span>
+            </div>
+            <form class="upload-form" data-upload-form>
+                <input name="file" type="file" required />
+                <button type="submit">Upload document</button>
+            </form>
+            <div class="document-list" data-document-list aria-live="polite"></div>
+        </div>
+
+        <div class="section-block">
+            <div class="section-title">
+                <h2>Chat sessions</h2>
+                <span data-session-count>0</span>
+            </div>
+            <p class="helper-text">A dataset can have many conversations. Select one or start a fresh session.</p>
+            <div class="session-list" data-session-list aria-live="polite"></div>
+        </div>
+    </aside>
+
+    <main class="chat-panel" aria-label="Chat interface">
+        <div class="chat-header">
+            <div>
+                <p class="eyebrow">Chat</p>
+                <h2 data-chat-title>Select a dataset to start</h2>
+            </div>
+            <button class="secondary-button" type="button" data-new-session>New session</button>
+        </div>
+
+        <div class="chat-stream" data-chat-stream aria-live="polite">
+            <div class="empty-state">
+                <h3>Ask questions grounded in your uploaded documents.</h3>
+                <p>Create or select a dataset, upload a document, then start a chat session.</p>
+            </div>
+        </div>
+
+        <form class="composer" data-chat-form>
+            <textarea name="message" rows="1" placeholder="Ask about this dataset..." required></textarea>
+            <button type="submit">Send</button>
+        </form>
+    </main>
+
+    <aside class="workspace-panel reference-panel" aria-label="Citation references">
+        <div class="panel-header">
+            <div>
+                <p class="eyebrow">References</p>
+                <h2>Sources</h2>
+            </div>
+        </div>
+        <div class="reference-empty" data-reference-empty>
+            <h3>No citation selected</h3>
+            <p>When an AI answer includes sources, select a reference to inspect the chunk and file name.</p>
+        </div>
+        <div class="reference-content" data-reference-content hidden></div>
+    </aside>
+</section>
+
+<template id="dataset-item-template">
+    <button class="dataset-item" type="button">
+        <span class="dataset-name"></span>
+        <span class="dataset-meta"></span>
+    </button>
+</template>
+
+<template id="document-item-template">
+    <div class="document-item">
+        <div>
+            <strong class="document-name"></strong>
+            <span class="document-meta"></span>
+        </div>
+        <div class="progress-track" aria-hidden="true">
+            <span class="progress-fill"></span>
+        </div>
+        <span class="status-pill"></span>
+    </div>
+</template>
+
+<template id="session-item-template">
+    <button class="session-item" type="button">
+        <span class="session-name"></span>
+        <span class="session-meta"></span>
+    </button>
+</template>

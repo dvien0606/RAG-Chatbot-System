@@ -13,10 +13,19 @@ namespace RagChatbotSystem.Presentation.Controllers
     public class ChatSessionsController : ControllerBase
     {
         private readonly IChatSessionService _chatSessionService;
+        private readonly IChatService _chatService;
 
-        public ChatSessionsController(IChatSessionService chatSessionService)
+        public ChatSessionsController(IChatSessionService chatSessionService, IChatService chatService)
         {
             _chatSessionService = chatSessionService;
+            _chatService = chatService;
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> GetSessions([FromQuery] Guid? userId, [FromQuery] Guid? datasetId, CancellationToken cancellationToken)
+        {
+            var sessions = await _chatSessionService.GetSessionsAsync(userId, datasetId, cancellationToken);
+            return Ok(sessions);
         }
 
         [HttpGet("{sessionId:guid}")]
@@ -47,6 +56,44 @@ namespace RagChatbotSystem.Presentation.Controllers
             {
                 var messages = await _chatSessionService.GetMessageHistoryAsync(sessionId, cancellationToken);
                 return Ok(messages);
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new { message = ex.Message });
+            }
+        }
+
+        [HttpPost("{sessionId:guid}/messages")]
+        public async Task<IActionResult> SendMessage(Guid sessionId, [FromBody] SendChatMessageRequest request)
+        {
+            if (string.IsNullOrWhiteSpace(request.Content))
+            {
+                return BadRequest(new { message = "Message content is required." });
+            }
+
+            try
+            {
+                var message = await _chatService.SendChatMessageAsync(sessionId, request.Content.Trim());
+                return Ok(new ChatMessageDto(
+                    message.MessageId,
+                    message.SessionId,
+                    message.Role,
+                    message.Content,
+                    message.CreatedAt));
+            }
+            catch (ArgumentException ex)
+            {
+                return NotFound(new { message = ex.Message });
+            }
+        }
+
+        [HttpGet("messages/{messageId:guid}/citations")]
+        public async Task<IActionResult> GetCitations(Guid messageId, CancellationToken cancellationToken)
+        {
+            try
+            {
+                var citations = await _chatSessionService.GetCitationsAsync(messageId, cancellationToken);
+                return Ok(citations);
             }
             catch (KeyNotFoundException ex)
             {

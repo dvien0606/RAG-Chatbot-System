@@ -93,6 +93,7 @@ namespace RagChatbotSystem.Business.Services
             };
 
             _context.ChatMessages.Add(assistantMessage);
+            session.UpdatedAt = assistantMessage.CreatedAt;
 
             // 7. Tạo trích dẫn nguồn (Citations) cho câu trả lời
             if (contextDocs.Count > 0)

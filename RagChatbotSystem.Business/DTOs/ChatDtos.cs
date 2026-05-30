@@ -15,10 +15,24 @@ namespace RagChatbotSystem.Business.DTOs
         Guid DatasetId,
         string? Title);
 
+    public sealed record SendChatMessageRequest(
+        string Content);
+
     public sealed record ChatMessageDto(
         Guid MessageId,
         Guid SessionId,
         string Role,
         string Content,
+        DateTime CreatedAt);
+
+    public sealed record CitationDto(
+        Guid CitationId,
+        Guid MessageId,
+        Guid ChunkId,
+        Guid DocumentId,
+        string FileName,
+        int PageNumber,
+        string QuoteText,
+        string? SourceLabel,
         DateTime CreatedAt);
 }
