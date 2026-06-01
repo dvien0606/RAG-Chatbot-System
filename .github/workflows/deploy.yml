@@ -13,6 +13,16 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
+      - name: Copy files via SCP
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USERNAME }}
+          key: ${{ secrets.SSH_KEY }}
+          port: 22
+          source: "."
+          target: "/var/www/rag-chatbot-system"
+
       - name: Deploy to VPS via SSH
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -24,20 +34,9 @@ jobs:
             set -e
             
             APP_DIR="/var/www/rag-chatbot-system"
-            mkdir -p $APP_DIR
             cd $APP_DIR
             
-            # Initialize repo if not exists
-            if [ ! -d ".git" ]; then
-              git clone https://github.com/minhvuong0909/RAG-Chatbot-System.git .
-            fi
-            
-            # Fetch latest changes and checkout dev branch
-            git fetch --all
-            git checkout dev
-            git pull origin dev
-            
-            # Create .env from secrets if not exists
+            # Create .env from template if not exists
             if [ ! -f ".env" ]; then
               cp .env.example .env
               echo "⚠️ Created .env from template. Please configure API keys!"
@@ -52,11 +51,8 @@ jobs:
             docker compose down
             docker compose up -d --build
             
-            # Wait for services to start
-            sleep 10
-            
-            # Run EF Core migrations inside the web-app container
-            docker compose exec -T web-app dotnet RagChatbotSystem.Presentation.dll --migrate 2>/dev/null || true
+            # Wait for services to start and auto-migrate
+            sleep 15
             
             # Remove old build cache and unused images to save disk space
             docker image prune -f
@@ -82,7 +78,7 @@ jobs:
               # Request SSL certificate via Certbot
               sudo certbot --nginx -d chatbot.vuongdev.top --non-interactive --agree-tos -m admin@vuongdev.top || true
               
-              echo "Nginx + SSL configured for chatbot.vuongdev.top"
+              echo "✅ Nginx + SSL configured for chatbot.vuongdev.top"
             else
-              echo "ℹNginx already configured, skipping."
+              echo "ℹ️ Nginx already configured, skipping."
             fi
