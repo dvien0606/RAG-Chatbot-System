@@ -22,6 +22,8 @@ namespace RagChatbotSystem.DataAccess.Data
         public DbSet<ChatSession> ChatSessions { get; set; } = null!;
         public DbSet<ChatMessage> ChatMessages { get; set; } = null!;
         public DbSet<Citation> Citations { get; set; } = null!;
+        public DbSet<DatasetPermission> DatasetPermissions { get; set; } = null!;
+
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -36,7 +38,9 @@ namespace RagChatbotSystem.DataAccess.Data
                 entity.HasKey(e => e.UserId);
                 entity.Property(e => e.FullName).IsRequired().HasMaxLength(255);
                 entity.Property(e => e.Email).IsRequired().HasMaxLength(255);
+                entity.Property(e => e.PasswordHash).IsRequired().HasMaxLength(500);
                 entity.Property(e => e.Role).IsRequired().HasMaxLength(50);
+                entity.Property(e => e.IsApproved).IsRequired().HasDefaultValue(true);
             });
 
             // Dataset configuration
@@ -44,12 +48,31 @@ namespace RagChatbotSystem.DataAccess.Data
             {
                 entity.HasKey(e => e.DatasetId);
                 entity.Property(e => e.Name).IsRequired().HasMaxLength(255);
+                entity.Property(e => e.IsPublic).IsRequired().HasDefaultValue(false);
+                entity.Property(e => e.IsApproved).IsRequired().HasDefaultValue(false);
                 
                 entity.HasOne(d => d.Creator)
                     .WithMany(u => u.Datasets)
                     .HasForeignKey(d => d.CreatedBy)
                     .OnDelete(DeleteBehavior.Restrict);
             });
+
+            // DatasetPermission configuration
+            modelBuilder.Entity<DatasetPermission>(entity =>
+            {
+                entity.HasKey(e => e.PermissionId);
+
+                entity.HasOne(dp => dp.Dataset)
+                    .WithMany(d => d.DatasetPermissions)
+                    .HasForeignKey(dp => dp.DatasetId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(dp => dp.User)
+                    .WithMany(u => u.DatasetPermissions)
+                    .HasForeignKey(dp => dp.UserId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+
 
             // Document configuration
             modelBuilder.Entity<Document>(entity =>

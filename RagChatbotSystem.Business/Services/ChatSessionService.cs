@@ -6,23 +6,33 @@ using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using RagChatbotSystem.Business.DTOs;
 using RagChatbotSystem.Business.Interfaces;
-using RagChatbotSystem.DataAccess.Data;
+using RagChatbotSystem.DataAccess.Repositories;
 using RagChatbotSystem.DataAccess.Models;
 
 namespace RagChatbotSystem.Business.Services
 {
     public class ChatSessionService : IChatSessionService
     {
-        private readonly AppDbContext _context;
+        private readonly IUnitOfWork _unitOfWork;
+        private readonly IGenericRepository<ChatSession> _sessionRepository;
+        private readonly IGenericRepository<User> _userRepository;
+        private readonly IGenericRepository<Dataset> _datasetRepository;
+        private readonly IGenericRepository<ChatMessage> _messageRepository;
+        private readonly IGenericRepository<Citation> _citationRepository;
 
-        public ChatSessionService(AppDbContext context)
+        public ChatSessionService(IUnitOfWork unitOfWork)
         {
-            _context = context;
+            _unitOfWork = unitOfWork;
+            _sessionRepository = _unitOfWork.Repository<ChatSession>();
+            _userRepository = _unitOfWork.Repository<User>();
+            _datasetRepository = _unitOfWork.Repository<Dataset>();
+            _messageRepository = _unitOfWork.Repository<ChatMessage>();
+            _citationRepository = _unitOfWork.Repository<Citation>();
         }
 
         public async Task<IReadOnlyList<ChatSessionDto>> GetSessionsAsync(Guid? userId = null, Guid? datasetId = null, CancellationToken cancellationToken = default)
         {
-            var query = _context.ChatSessions.AsNoTracking();
+            var query = _sessionRepository.GetQueryable().AsNoTracking();
 
             if (userId.HasValue)
             {
@@ -48,7 +58,7 @@ namespace RagChatbotSystem.Business.Services
 
         public async Task<ChatSessionDto?> GetSessionAsync(Guid sessionId, CancellationToken cancellationToken = default)
         {
-            return await _context.ChatSessions
+            return await _sessionRepository.GetQueryable()
                 .AsNoTracking()
                 .Where(s => s.SessionId == sessionId)
                 .Select(s => new ChatSessionDto(
@@ -63,13 +73,13 @@ namespace RagChatbotSystem.Business.Services
 
         public async Task<ChatSessionDto> CreateSessionAsync(CreateChatSessionRequest request, CancellationToken cancellationToken = default)
         {
-            var userExists = await _context.Users.AnyAsync(u => u.UserId == request.UserId, cancellationToken);
+            var userExists = await _userRepository.GetQueryable().AnyAsync(u => u.UserId == request.UserId, cancellationToken);
             if (!userExists)
             {
                 throw new InvalidOperationException("User was not found.");
             }
 
-            var datasetExists = await _context.Datasets.AnyAsync(d => d.DatasetId == request.DatasetId, cancellationToken);
+            var datasetExists = await _datasetRepository.GetQueryable().AnyAsync(d => d.DatasetId == request.DatasetId, cancellationToken);
             if (!datasetExists)
             {
                 throw new InvalidOperationException("Dataset was not found.");
@@ -86,21 +96,21 @@ namespace RagChatbotSystem.Business.Services
                 UpdatedAt = now
             };
 
-            _context.ChatSessions.Add(session);
-            await _context.SaveChangesAsync(cancellationToken);
+            await _sessionRepository.AddAsync(session, cancellationToken);
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
 
             return ToDto(session);
         }
 
         public async Task<IReadOnlyList<ChatMessageDto>> GetMessageHistoryAsync(Guid sessionId, CancellationToken cancellationToken = default)
         {
-            var sessionExists = await _context.ChatSessions.AnyAsync(s => s.SessionId == sessionId, cancellationToken);
+            var sessionExists = await _sessionRepository.GetQueryable().AnyAsync(s => s.SessionId == sessionId, cancellationToken);
             if (!sessionExists)
             {
                 throw new KeyNotFoundException("Chat session was not found.");
             }
 
-            return await _context.ChatMessages
+            return await _messageRepository.GetQueryable()
                 .AsNoTracking()
                 .Where(m => m.SessionId == sessionId)
                 .OrderBy(m => m.CreatedAt)
@@ -115,13 +125,13 @@ namespace RagChatbotSystem.Business.Services
 
         public async Task<IReadOnlyList<CitationDto>> GetCitationsAsync(Guid messageId, CancellationToken cancellationToken = default)
         {
-            var messageExists = await _context.ChatMessages.AnyAsync(m => m.MessageId == messageId, cancellationToken);
+            var messageExists = await _messageRepository.GetQueryable().AnyAsync(m => m.MessageId == messageId, cancellationToken);
             if (!messageExists)
             {
                 throw new KeyNotFoundException("Chat message was not found.");
             }
 
-            return await _context.Citations
+            return await _citationRepository.GetQueryable()
                 .AsNoTracking()
                 .Where(c => c.MessageId == messageId)
                 .OrderBy(c => c.CreatedAt)

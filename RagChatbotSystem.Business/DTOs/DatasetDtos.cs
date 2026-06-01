@@ -9,10 +9,14 @@ namespace RagChatbotSystem.Business.DTOs
         Guid CreatedBy,
         DateTime CreatedAt,
         DateTime UpdatedAt,
-        int DocumentCount);
+        int DocumentCount,
+        bool IsPublic,
+        bool IsApproved);
 
     public sealed record CreateDatasetRequest(
         string Name,
         string? Description,
-        Guid CreatedBy);
+        Guid CreatedBy,
+        bool IsPublic);
+
 }

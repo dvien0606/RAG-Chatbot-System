@@ -1,99 +1,84 @@
 using System;
-using System.Collections.Generic;
-using System.Threading;
+using System.Security.Claims;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 using RagChatbotSystem.Business.DTOs;
 using RagChatbotSystem.Business.Interfaces;
 
 namespace RagChatbotSystem.Presentation.Controllers
 {
-    [ApiController]
-    [Route("api/chat-sessions")]
-    public class ChatSessionsController : ControllerBase
+    [Authorize]
+    public class ChatSessionsController : Controller
     {
         private readonly IChatSessionService _chatSessionService;
         private readonly IChatService _chatService;
+        private readonly ILogger<ChatSessionsController> _logger;
 
-        public ChatSessionsController(IChatSessionService chatSessionService, IChatService chatService)
+        public ChatSessionsController(
+            IChatSessionService chatSessionService,
+            IChatService chatService,
+            ILogger<ChatSessionsController> logger)
         {
             _chatSessionService = chatSessionService;
             _chatService = chatService;
-        }
-
-        [HttpGet]
-        public async Task<IActionResult> GetSessions([FromQuery] Guid? userId, [FromQuery] Guid? datasetId, CancellationToken cancellationToken)
-        {
-            var sessions = await _chatSessionService.GetSessionsAsync(userId, datasetId, cancellationToken);
-            return Ok(sessions);
-        }
-
-        [HttpGet("{sessionId:guid}")]
-        public async Task<IActionResult> GetSession(Guid sessionId, CancellationToken cancellationToken)
-        {
-            var session = await _chatSessionService.GetSessionAsync(sessionId, cancellationToken);
-            return session == null ? NotFound() : Ok(session);
+            _logger = logger;
         }
 
         [HttpPost]
-        public async Task<IActionResult> CreateSession([FromBody] CreateChatSessionRequest request, CancellationToken cancellationToken)
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> Create(Guid datasetId, string? title)
         {
+            var userIdString = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (string.IsNullOrEmpty(userIdString) || !Guid.TryParse(userIdString, out var currentUserId))
+            {
+                return Challenge();
+            }
+
             try
             {
-                var session = await _chatSessionService.CreateSessionAsync(request, cancellationToken);
-                return CreatedAtAction(nameof(GetSession), new { sessionId = session.SessionId }, session);
+                var session = await _chatSessionService.CreateSessionAsync(new CreateChatSessionRequest(currentUserId, datasetId, title));
+                return RedirectToAction("Index", "Home", new { datasetId, sessionId = session.SessionId, success = "Khởi tạo phòng chat mới thành công!" });
             }
-            catch (InvalidOperationException ex)
+            catch (Exception ex)
             {
-                return NotFound(new { message = ex.Message });
+                return RedirectToAction("Index", "Home", new { datasetId, error = $"Không thể khởi tạo phòng chat: {ex.Message}" });
             }
         }
 
-        [HttpGet("{sessionId:guid}/messages")]
-        public async Task<IActionResult> GetMessageHistory(Guid sessionId, CancellationToken cancellationToken)
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> SendMessage(Guid datasetId, Guid sessionId, string question)
         {
-            try
-            {
-                var messages = await _chatSessionService.GetMessageHistoryAsync(sessionId, cancellationToken);
-                return Ok(messages);
-            }
-            catch (KeyNotFoundException ex)
-            {
-                return NotFound(new { message = ex.Message });
-            }
-        }
-
-        [HttpPost("{sessionId:guid}/messages")]
-        public async Task<IActionResult> SendMessage(Guid sessionId, [FromBody] SendChatMessageRequest request)
-        {
-            var question = request.Question ?? request.Content;
             if (string.IsNullOrWhiteSpace(question))
             {
-                return BadRequest(new { message = "Message content is required." });
+                return RedirectToAction("Index", "Home", new { datasetId, sessionId, error = "Câu hỏi không được để trống." });
+            }
+
+            var userIdString = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (string.IsNullOrEmpty(userIdString) || !Guid.TryParse(userIdString, out var currentUserId))
+            {
+                return Challenge();
             }
 
             try
             {
-                var response = await _chatService.SendChatMessageAsync(sessionId, question.Trim());
-                return Ok(response);
-            }
-            catch (ArgumentException ex)
-            {
-                return BadRequest(new { message = ex.Message });
-            }
-        }
+                // Bảo mật: Đảm bảo Session này thuộc về người dùng đang đăng nhập
+                var session = await _chatSessionService.GetSessionAsync(sessionId);
+                if (session == null || session.UserId != currentUserId)
+                {
+                    return RedirectToAction("Index", "Home", new { datasetId, error = "Bạn không có quyền gửi tin nhắn trong phòng chat này." });
+                }
 
-        [HttpGet("messages/{messageId:guid}/citations")]
-        public async Task<IActionResult> GetCitations(Guid messageId, CancellationToken cancellationToken)
-        {
-            try
-            {
-                var citations = await _chatSessionService.GetCitationsAsync(messageId, cancellationToken);
-                return Ok(citations);
+
+                await _chatService.SendChatMessageAsync(sessionId, question);
+                return RedirectToAction("Index", "Home", new { datasetId, sessionId });
             }
-            catch (KeyNotFoundException ex)
+            catch (Exception ex)
             {
-                return NotFound(new { message = ex.Message });
+                _logger.LogError(ex, "Failed to send chat message.");
+                return RedirectToAction("Index", "Home", new { datasetId, sessionId, error = $"Lỗi gửi tin nhắn: {ex.Message}" });
             }
         }
     }
