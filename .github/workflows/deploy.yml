@@ -1,0 +1,89 @@
+name: Deploy RAG Chatbot System
+
+on:
+  push:
+    branches:
+      - dev
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Deploy to VPS via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USERNAME }}
+          key: ${{ secrets.SSH_KEY }}
+          port: 22
+          script: |
+            set -e
+            
+            APP_DIR="/var/www/rag-chatbot-system"
+            mkdir -p $APP_DIR
+            cd $APP_DIR
+            
+            # Initialize repo if not exists
+            if [ ! -d ".git" ]; then
+              git clone https://github.com/minhvuong0909/RAG-Chatbot-System.git .
+            fi
+            
+            # Fetch latest changes and checkout dev branch
+            git fetch --all
+            git checkout dev
+            git pull origin dev
+            
+            # Create .env from secrets if not exists
+            if [ ! -f ".env" ]; then
+              cp .env.example .env
+              echo "⚠️ Created .env from template. Please configure API keys!"
+            fi
+            
+            # Pre-create empty google-credentials.json if not present
+            if [ ! -f "google-credentials.json" ]; then
+              echo '{}' > google-credentials.json
+            fi
+            
+            # Rebuild and start container services
+            docker compose down
+            docker compose up -d --build
+            
+            # Wait for services to start
+            sleep 10
+            
+            # Run EF Core migrations inside the web-app container
+            docker compose exec -T web-app dotnet RagChatbotSystem.Presentation.dll --migrate 2>/dev/null || true
+            
+            # Remove old build cache and unused images to save disk space
+            docker image prune -f
+            
+            echo "✅ Deployment completed successfully!"
+            
+      - name: Setup Nginx (first time only)
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USERNAME }}
+          key: ${{ secrets.SSH_KEY }}
+          port: 22
+          script: |
+            NGINX_CONF="/etc/nginx/sites-available/vuongdev.top"
+            
+            # Only setup Nginx if config doesn't exist
+            if [ ! -f "$NGINX_CONF" ]; then
+              sudo cp /var/www/rag-chatbot-system/nginx.conf $NGINX_CONF
+              sudo ln -sf $NGINX_CONF /etc/nginx/sites-enabled/vuongdev.top
+              sudo rm -f /etc/nginx/sites-enabled/default
+              sudo nginx -t && sudo systemctl reload nginx
+              
+              # Request SSL certificate via Certbot
+              sudo certbot --nginx -d vuongdev.top -d www.vuongdev.top --non-interactive --agree-tos -m admin@vuongdev.top || true
+              
+              echo "✅ Nginx + SSL configured for vuongdev.top"
+            else
+              echo "ℹ️ Nginx already configured, skipping."
+            fi

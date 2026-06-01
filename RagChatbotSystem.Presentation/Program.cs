@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 using RagChatbotSystem.DataAccess.Data;
 using Pgvector;
@@ -95,6 +96,12 @@ namespace RagChatbotSystem.Presentation
                 app.UseExceptionHandler("/Home/Error");
                 app.UseHsts();
             }
+
+            // Hỗ trợ reverse proxy (Nginx) để nhận đúng IP client và scheme
+            app.UseForwardedHeaders(new ForwardedHeadersOptions
+            {
+                ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
+            });
 
             app.UseHttpsRedirection();
 
