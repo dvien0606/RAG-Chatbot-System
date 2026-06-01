@@ -26,11 +26,10 @@ Thumbs.db
 ehthumbs.db
 Desktop.ini
 .DS_Store
-
 .env
 .env.local
 .env.*.local
-
+.env.deployment
 # Runtime uploaded files
 **/wwwroot/uploads/
 
