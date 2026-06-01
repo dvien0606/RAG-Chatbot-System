@@ -1,12 +1,10 @@
 FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
 WORKDIR /src
 
-# Copy solution and project files for restoring
-COPY RagChatbotSystem.sln ./
+# Copy project files for restoring
 COPY RagChatbotSystem.Presentation/RagChatbotSystem.Presentation.csproj RagChatbotSystem.Presentation/
 COPY RagChatbotSystem.DataAccess/RagChatbotSystem.DataAccess.csproj RagChatbotSystem.DataAccess/
 COPY RagChatbotSystem.Business/RagChatbotSystem.Business.csproj RagChatbotSystem.Business/
-COPY RagChatbotSystem.Tests/RagChatbotSystem.Tests.csproj RagChatbotSystem.Tests/
 
 RUN dotnet restore RagChatbotSystem.Presentation/RagChatbotSystem.Presentation.csproj
 
