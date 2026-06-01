@@ -7,10 +7,13 @@ namespace RagChatbotSystem.Business.DTOs
         string FullName,
         string Email,
         string Role,
-        DateTime CreatedAt);
+        DateTime CreatedAt,
+        bool IsApproved);
 
     public sealed record CreateUserRequest(
         string FullName,
         string Email,
-        string? Role);
+        string? Role,
+        string Password);
+
 }

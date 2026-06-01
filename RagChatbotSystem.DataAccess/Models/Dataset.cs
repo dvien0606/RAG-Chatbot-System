@@ -11,9 +11,12 @@ namespace RagChatbotSystem.DataAccess.Models
         public Guid CreatedBy { get; set; }
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+        public bool IsPublic { get; set; } = false;
+        public bool IsApproved { get; set; } = false;
 
         // Navigation properties
         public virtual User Creator { get; set; } = null!;
+        public virtual ICollection<DatasetPermission> DatasetPermissions { get; set; } = new List<DatasetPermission>();
         public virtual ICollection<Document> Documents { get; set; } = new List<Document>();
         public virtual ICollection<ChatSession> ChatSessions { get; set; } = new List<ChatSession>();
         public virtual ICollection<Chunk> Chunks { get; set; } = new List<Chunk>();

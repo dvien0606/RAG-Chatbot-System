@@ -1,112 +1,119 @@
 using System;
-using System.Collections.Generic;
-using System.Threading;
+using System.IO;
+using System.Security.Claims;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 using RagChatbotSystem.Business.Interfaces;
 
 namespace RagChatbotSystem.Presentation.Controllers
 {
-    [ApiController]
-    public class DocumentsController : ControllerBase
+    [Authorize]
+    public class DocumentsController : Controller
     {
         private readonly IDocumentService _documentService;
+        private readonly IDatasetService _datasetService;
+        private readonly ILogger<DocumentsController> _logger;
 
-        public DocumentsController(IDocumentService documentService)
+        public DocumentsController(
+            IDocumentService documentService,
+            IDatasetService datasetService,
+            ILogger<DocumentsController> logger)
         {
             _documentService = documentService;
+            _datasetService = datasetService;
+            _logger = logger;
         }
 
-        [HttpGet("api/datasets/{datasetId:guid}/documents")]
-        public async Task<IActionResult> GetDocumentsByDataset(Guid datasetId, CancellationToken cancellationToken)
+        [HttpPost]
+        [Authorize(Roles = "Teacher,Admin")]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> Upload(Guid datasetId, IFormFile file)
         {
-            try
+            if (file == null || file.Length == 0)
             {
-                var documents = await _documentService.GetDocumentsByDatasetAsync(datasetId, cancellationToken);
-                return Ok(documents);
+                return RedirectToAction("Index", "Home", new { datasetId, error = "Vui lòng chọn tệp để tải lên." });
             }
-            catch (KeyNotFoundException ex)
+
+            var userIdString = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (string.IsNullOrEmpty(userIdString) || !Guid.TryParse(userIdString, out var currentUserId))
             {
-                return NotFound(new { message = ex.Message });
+                return Challenge();
             }
-        }
 
-        [HttpGet("api/documents/{documentId:guid}")]
-        public async Task<IActionResult> GetDocument(Guid documentId, CancellationToken cancellationToken)
-        {
-            var document = await _documentService.GetDocumentAsync(documentId, cancellationToken);
-            return document == null ? NotFound() : Ok(document);
-        }
+            var userRole = User.FindFirstValue(ClaimTypes.Role);
 
-        public class UploadDocumentRequest
-        {
-            public Guid UploadedBy { get; set; }
-            public IFormFile File { get; set; } = null!;
-        }
-
-        [HttpPost("api/datasets/{datasetId:guid}/documents")]
-        [RequestSizeLimit(50_000_000)]
-        public async Task<IActionResult> UploadDocument(
-            Guid datasetId,
-            [FromForm] UploadDocumentRequest request,
-            CancellationToken cancellationToken)
-        {
-            if (request?.File == null || request.File.Length == 0)
+            // Kiểm tra xem Dataset có tồn tại và thuộc quyền quản lý của User không
+            var dataset = await _datasetService.GetDatasetAsync(datasetId);
+            if (dataset == null)
             {
-                return BadRequest(new { message = "File is required." });
+                return NotFound();
+            }
+
+            if (userRole != "Admin" && dataset.CreatedBy != currentUserId)
+            {
+                return RedirectToAction("Index", "Home", new { datasetId, error = "Bạn chỉ có quyền tải lên tài liệu vào Dataset của chính mình." });
             }
 
             try
             {
-                await using var stream = request.File.OpenReadStream();
-                var document = await _documentService.UploadDocumentAsync(
-                    datasetId,
-                    request.UploadedBy,
-                    stream,
-                    request.File.FileName,
-                    request.File.Length,
-                    cancellationToken);
+                using var stream = file.OpenReadStream();
+                // 1. Lưu file vật lý
+                var doc = await _documentService.UploadDocumentAsync(datasetId, currentUserId, stream, file.FileName, file.Length);
+                // 2. Tiến hành trích xuất text + chunking + embedding + đánh chỉ mục
+                await _documentService.ProcessUploadedDocumentAsync(doc.DocumentId);
 
-                return CreatedAtAction(nameof(GetDocument), new { documentId = document.DocumentId }, document);
+                return RedirectToAction("Index", "Home", new { datasetId, success = $"Tài liệu '{file.FileName}' đã được tải lên và xử lý phân đoạn thành công!" });
             }
-            catch (ArgumentException ex)
+            catch (Exception ex)
             {
-                return BadRequest(new { message = ex.Message });
-            }
-            catch (InvalidOperationException ex)
-            {
-                return NotFound(new { message = ex.Message });
+                _logger.LogError(ex, "Failed to upload and process document.");
+                return RedirectToAction("Index", "Home", new { datasetId, error = $"Tải tài liệu thất bại: {ex.Message}" });
             }
         }
 
-        [HttpPost("api/documents/{documentId:guid}/process")]
-        public async Task<IActionResult> ProcessDocument(Guid documentId, CancellationToken cancellationToken)
+        [HttpPost]
+        [Authorize(Roles = "Teacher,Admin")]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> Delete(Guid datasetId, Guid documentId)
         {
+            var userIdString = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (string.IsNullOrEmpty(userIdString) || !Guid.TryParse(userIdString, out var currentUserId))
+            {
+                return Challenge();
+            }
+
+            var userRole = User.FindFirstValue(ClaimTypes.Role);
+
+            // Kiểm tra sự tồn tại của Document
+            var document = await _documentService.GetDocumentAsync(documentId);
+            if (document == null)
+            {
+                return RedirectToAction("Index", "Home", new { datasetId, error = "Không tìm thấy tài liệu cần xóa." });
+            }
+
+            // Giáo viên chỉ được xóa tài liệu do chính mình tải lên
+            if (userRole != "Admin" && document.UploadedBy != currentUserId)
+            {
+                return RedirectToAction("Index", "Home", new { datasetId, error = "Bạn chỉ có quyền xóa tài liệu do chính mình tải lên." });
+            }
+
             try
             {
-                var document = await _documentService.ProcessUploadedDocumentAsync(documentId, cancellationToken);
-                return Ok(document);
+                var deleted = await _documentService.DeleteDocumentAsync(documentId);
+                if (deleted)
+                {
+                    return RedirectToAction("Index", "Home", new { datasetId, success = "Xóa tài liệu thành công!" });
+                }
+                return RedirectToAction("Index", "Home", new { datasetId, error = "Xóa tài liệu thất bại." });
             }
-            catch (KeyNotFoundException ex)
+            catch (Exception ex)
             {
-                return NotFound(new { message = ex.Message });
+                _logger.LogError(ex, "Failed to delete document.");
+                return RedirectToAction("Index", "Home", new { datasetId, error = $"Xóa tài liệu thất bại: {ex.Message}" });
             }
-            catch (NotSupportedException ex)
-            {
-                return BadRequest(new { message = ex.Message });
-            }
-            catch (InvalidOperationException ex)
-            {
-                return BadRequest(new { message = ex.Message });
-            }
-        }
-
-        [HttpDelete("api/documents/{documentId:guid}")]
-        public async Task<IActionResult> DeleteDocument(Guid documentId)
-        {
-            var deleted = await _documentService.DeleteDocumentAsync(documentId);
-            return deleted ? NoContent() : NotFound();
         }
     }
 }

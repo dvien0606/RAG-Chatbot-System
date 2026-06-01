@@ -1,86 +1,335 @@
+@model RagChatbotSystem.Presentation.Models.WorkspaceViewModel
 @{
-    ViewData["Title"] = "Workspace";
+    var defaultMobileTab = Model.SelectedMessageId.HasValue ? "reference-panel" : "chat-panel";
 }
 
-<section class="workspace" data-rag-app>
+<section class="workspace" data-rag-app data-active-tab="@defaultMobileTab">
+    <!-- Mobile Navigation Tabs (Only visible on mobile screens) -->
+    <div class="mobile-workspace-tabs" aria-label="Workspace navigation">
+        <button class="mobile-tab-btn @(defaultMobileTab == "chat-panel" ? "active" : "")" data-target="chat-panel">💬 Chat</button>
+        <button class="mobile-tab-btn @(defaultMobileTab == "management-panel" ? "active" : "")" data-target="management-panel">📚 Knowledge</button>
+        <button class="mobile-tab-btn @(defaultMobileTab == "reference-panel" ? "active" : "")" data-target="reference-panel">
+            🔍 Sources @(Model.Citations.Count > 0 ? $"({Model.Citations.Count})" : "")
+        </button>
+    </div>
+
+    <!-- Cột 1: Bảng điều khiển quản lý (Management) -->
     <aside class="workspace-panel management-panel" aria-label="Dataset management">
         <div class="panel-header">
             <div>
                 <p class="eyebrow">Management</p>
                 <h1>Knowledge workspace</h1>
             </div>
-            <button class="icon-button" type="button" data-refresh title="Refresh workspace" aria-label="Refresh workspace">
-                <span aria-hidden="true">R</span>
-            </button>
+            <a class="icon-button" href="?datasetId=@Model.SelectedDatasetId&sessionId=@Model.SelectedSessionId" title="Refresh workspace" aria-label="Refresh workspace" style="text-decoration: none;">
+                <span aria-hidden="true">↻</span>
+            </a>
         </div>
 
-        <form class="setup-form" data-user-form>
-            <label for="userName">User</label>
-            <div class="input-row">
-                <input id="userName" name="fullName" type="text" autocomplete="name" placeholder="Nguyen Van A" required />
-                <button type="submit">Use</button>
+        <!-- Thông báo lỗi hoặc thành công -->
+        @if (!string.IsNullOrEmpty(Model.ErrorMessage))
+        {
+            <div class="alert alert-danger" style="background: rgba(180, 35, 24, 0.1); border: 1px solid rgba(180, 35, 24, 0.2); padding: 0.75rem; border-radius: 8px; color: var(--danger); margin-bottom: 1rem; font-size: 0.84rem; font-weight: 500;">
+                @Model.ErrorMessage
             </div>
-            <input name="email" type="email" autocomplete="email" placeholder="you@example.com" required />
-            <p class="helper-text" data-user-status>Set a test user before creating datasets.</p>
-        </form>
+        }
+        @if (!string.IsNullOrEmpty(Model.SuccessMessage))
+        {
+            <div class="alert alert-success" style="background: rgba(15, 118, 110, 0.1); border: 1px solid rgba(15, 118, 110, 0.2); padding: 0.75rem; border-radius: 8px; color: var(--accent-strong); margin-bottom: 1rem; font-size: 0.84rem; font-weight: 500;">
+                @Model.SuccessMessage
+            </div>
+        }
 
+        <!-- Thông tin người dùng đăng nhập -->
+        <div style="border-bottom: 1px solid var(--line); padding-bottom: 12px; margin-bottom: 16px;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="font-size: 1.2rem;">👤</span>
+                <div>
+                    <div class="fw-bold" style="color: var(--ink); font-size: 0.95rem;">@Model.SelectedUser?.FullName</div>
+                    <div class="text-muted small text-uppercase" style="font-size: 0.75rem; font-weight: bold; color: var(--accent-strong);">Role: @User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quản lý Datasets -->
         <div class="section-block">
             <div class="section-title">
                 <h2>Datasets</h2>
-                <span data-dataset-count>0</span>
+                <span>@Model.Datasets.Count</span>
             </div>
-            <form class="create-form" data-dataset-form>
-                <input name="name" type="text" placeholder="Dataset name" required />
-                <textarea name="description" rows="2" placeholder="Short description"></textarea>
-                <button type="submit">Create dataset</button>
-            </form>
-            <div class="dataset-list" data-dataset-list aria-live="polite"></div>
+
+            @if (!User.IsInRole("Student"))
+            {
+                <form asp-controller="Datasets" asp-action="Create" method="post" class="create-form">
+                    @Html.AntiForgeryToken()
+                    <input name="name" type="text" placeholder="Dataset name" required />
+                    <textarea name="description" rows="2" placeholder="Short description"></textarea>
+                    
+                    <div style="display: flex; align-items: center; gap: 6px; margin: 8px 0;">
+                        <input type="checkbox" name="isPublic" id="isPublic" value="true" checked style="width: auto; height: auto;" />
+                        <label for="isPublic" style="font-size: 0.85rem; color: var(--muted); cursor: pointer; margin: 0;">Public Dataset (Công khai)</label>
+                    </div>
+
+                    <button type="submit">Create dataset</button>
+                </form>
+            }
+
+            <div class="dataset-list" aria-live="polite">
+                @if (Model.Datasets.Count == 0)
+                {
+                    <p class="helper-text">No datasets yet.</p>
+                }
+                @foreach (var ds in Model.Datasets)
+                {
+                    <div style="position: relative; display: block; margin-bottom: 6px;">
+                        <a class="dataset-item @(Model.SelectedDatasetId == ds.DatasetId ? "active" : "")" 
+                           href="?datasetId=@ds.DatasetId"
+                           style="text-decoration: none; display: block; padding-right: 40px;">
+                            <span class="dataset-name" style="display: flex; align-items: center; gap: 4px;">
+                                @if (!ds.IsApproved)
+                                {
+                                    <span title="Pending approval" style="color: var(--warning);">⏳</span>
+                                }
+                                @ds.Name
+                                @if (!ds.IsPublic)
+                                {
+                                    <span title="Private dataset" style="font-size: 0.8rem; color: var(--muted);">🔒</span>
+                                }
+                            </span>
+                            <span class="dataset-meta">@ds.DocumentCount document(s)</span>
+                        </a>
+
+                        @if (User.IsInRole("Admin") || ds.CreatedBy == Model.SelectedUserId)
+                        {
+                            <!-- Nút xóa Dataset -->
+                            <form asp-controller="Datasets" asp-action="Delete" method="post" style="position: absolute; right: 10px; top: 12px; margin: 0; padding: 0;" onsubmit="return confirm('Xóa Dataset này sẽ xóa toàn bộ tài liệu bên trong. Bạn chắc chắn chứ?');">
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="id" value="@ds.DatasetId" />
+                                <button type="submit" style="background: transparent; border: none; font-size: 0.9rem; color: var(--danger); cursor: pointer; padding: 2px;" title="Delete dataset">🗑️</button>
+                            </form>
+                        }
+                    </div>
+                }
+            </div>
         </div>
 
+        <!-- Quản lý Tài liệu (Documents) -->
         <div class="section-block">
             <div class="section-title">
                 <h2>Documents</h2>
-                <span data-document-count>0</span>
+                <span>@Model.Documents.Count</span>
             </div>
-            <form class="upload-form" data-upload-form>
-                <input name="file" type="file" required />
-                <button type="submit">Upload document</button>
-            </form>
-            <div class="document-list" data-document-list aria-live="polite"></div>
+            @if (Model.SelectedDatasetId.HasValue)
+            {
+                @if (!User.IsInRole("Student") && (User.IsInRole("Admin") || Model.SelectedDataset?.CreatedBy == Model.SelectedUserId))
+                {
+                    <form asp-controller="Documents" asp-action="Upload" method="post" enctype="multipart/form-data" class="upload-form" id="upload-doc-form">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="datasetId" value="@Model.SelectedDatasetId" />
+                        <div style="position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; border: 2px dashed var(--line); border-radius: 12px; padding: 22px 16px; background: var(--surface-muted); text-align: center; cursor: pointer; transition: all 0.2s;" onclick="document.getElementById('file-upload').click();" onmouseover="this.style.borderColor='var(--accent)';" onmouseout="this.style.borderColor='var(--line)';">
+                            <span style="font-size: 1.8rem; margin-bottom: 6px;">📤</span>
+                            <span style="font-weight: 700; font-size: 0.9rem; color: var(--ink);">Upload documents for RAG</span>
+                            <span style="font-size: 0.75rem; color: var(--muted); margin-top: 4px;">PDF, TXT, MD, or DOCX files supported</span>
+                            <input id="file-upload" name="file" type="file" required style="display: none;" onchange="document.getElementById('upload-doc-form').submit();" />
+                        </div>
+                    </form>
+                }
+                
+                <div class="document-list" aria-live="polite">
+                    @if (Model.Documents.Count == 0)
+                    {
+                        <p class="helper-text">No documents in this dataset. Hỗ trợ file: TXT, PDF, DOCX.</p>
+                    }
+                    @foreach (var doc in Model.Documents)
+                    {
+                        <div class="document-item">
+                            <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 8px;">
+                                <div style="min-width: 0; flex-grow: 1;">
+                                    <strong class="document-name" style="text-overflow: ellipsis; overflow: hidden; white-space: nowrap;" title="@doc.FileName">@doc.FileName</strong>
+                                    <span class="document-meta">@doc.FileType.ToUpper() - @Math.Ceiling(doc.FileSize / 1024.0) KB</span>
+                                </div>
+                                @if (User.IsInRole("Admin") || doc.UploadedBy == Model.SelectedUserId)
+                                {
+                                    <form asp-controller="Documents" asp-action="Delete" method="post" style="margin: 0; padding: 0;" onsubmit="return confirm('Are you sure you want to delete this document?');">
+                                        @Html.AntiForgeryToken()
+                                        <input type="hidden" name="datasetId" value="@Model.SelectedDatasetId" />
+                                        <input type="hidden" name="documentId" value="@doc.DocumentId" />
+                                        <button type="submit" style="background: transparent; border: none; font-size: 1rem; color: var(--danger); cursor: pointer; padding: 2px; display: inline-flex; align-items: center;" title="Delete document">🗑️</button>
+                                    </form>
+                                }
+                            </div>
+                            <div class="progress-track" aria-hidden="true">
+                                <span class="progress-fill" style="width: @(doc.Status.Equals("Processing", StringComparison.OrdinalIgnoreCase) ? "55%" : "100%")"></span>
+                            </div>
+                            <span class="status-pill @doc.Status.ToLower()">@doc.Status</span>
+                        </div>
+                    }
+                </div>
+            }
+            else
+            {
+                <p class="helper-text">Select a dataset to view documents.</p>
+            }
         </div>
 
+        <!-- Quản lý Chat Sessions -->
         <div class="section-block">
             <div class="section-title">
                 <h2>Chat sessions</h2>
-                <span data-session-count>0</span>
+                <span>@Model.Sessions.Count</span>
             </div>
             <p class="helper-text">A dataset can have many conversations. Select one or start a fresh session.</p>
-            <div class="session-list" data-session-list aria-live="polite"></div>
+            @if (Model.SelectedDatasetId.HasValue)
+            {
+                <form asp-controller="ChatSessions" asp-action="Create" method="post" class="create-form" style="margin-bottom: 6px;">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="datasetId" value="@Model.SelectedDatasetId" />
+                    <div class="input-row">
+                        <input name="title" type="text" placeholder="Session title (optional)" />
+                        <button type="submit">New</button>
+                    </div>
+                </form>
+                <div class="session-list" aria-live="polite">
+                    @if (Model.Sessions.Count == 0)
+                    {
+                        <p class="helper-text">No sessions yet.</p>
+                    }
+                    @foreach (var ss in Model.Sessions)
+                    {
+                        <a class="session-item @(Model.SelectedSessionId == ss.SessionId ? "active" : "")" 
+                           href="?datasetId=@Model.SelectedDatasetId&sessionId=@ss.SessionId"
+                           style="text-decoration: none;">
+                            <span class="session-name">@ss.Title</span>
+                            <span class="session-meta">Updated @ss.UpdatedAt.ToString("HH:mm dd/MM")</span>
+                        </a>
+                    }
+                </div>
+            }
+        </div>
+
+        <!-- Statistics Block (Mock Web3 style matching user screenshot) -->
+        <div class="section-block mt-4 pt-3" style="border-top: 1px solid var(--line);">
+            <div class="section-title mb-2">
+                <h2 style="font-size: 1rem; font-weight: 700; color: var(--ink);">Statistics</h2>
+            </div>
+            <div class="d-flex flex-column gap-2" style="font-size: 0.85rem;">
+                <div class="d-flex justify-content-between">
+                    <span class="text-muted">Total Documents</span>
+                    <strong style="color: var(--accent); font-weight: 700;">@Model.Documents.Count</strong>
+                </div>
+                <div class="d-flex justify-content-between">
+                    <span class="text-muted">Embeddings</span>
+                    <strong style="color: #8b5cf6; font-weight: 700;">@(Model.Documents.Count * 25)</strong>
+                </div>
+                <div class="d-flex justify-content-between">
+                    <span class="text-muted">Queries Today</span>
+                    <strong style="color: #10b981; font-weight: 700;">156</strong>
+                </div>
+            </div>
+        </div>
+
+        <!-- Web3 Features Block (Mock Web3 style matching user screenshot) -->
+        <div class="section-block mt-4 pt-3" style="border-top: 1px solid var(--line); background: rgba(59, 130, 246, 0.03); margin: 0 -18px -18px -18px; padding: 18px; border-bottom-left-radius: 12px; border-bottom-right-radius: 12px;">
+            <div class="section-title mb-2">
+                <h2 style="font-size: 0.9rem; font-weight: 700; color: var(--accent); display: flex; align-items: center; gap: 6px;">
+                    <span style="display:inline-block; width:6px; height:6px; background:#10b981; border-radius:50%;"></span>
+                    Web3 Features
+                </h2>
+            </div>
+            <ul style="list-style: none; padding: 0; margin: 0; font-size: 0.8rem; display: flex; flex-direction: column; gap: 6px; color: var(--muted);">
+                <li><span style="color: #10b981; margin-right: 6px; font-weight: bold;">✓</span> Decentralized storage (IPFS)</li>
+                <li><span style="color: #10b981; margin-right: 6px; font-weight: bold;">✓</span> On-chain verification</li>
+                <li><span style="color: #10b981; margin-right: 6px; font-weight: bold;">✓</span> Token-gated access</li>
+                <li><span style="color: #10b981; margin-right: 6px; font-weight: bold;">✓</span> Smart contract integration</li>
+            </ul>
         </div>
     </aside>
 
+    <!-- Cột 2: Giao diện Hội thoại (Chat Panel) -->
     <main class="chat-panel" aria-label="Chat interface">
         <div class="chat-header">
             <div>
                 <p class="eyebrow">Chat</p>
-                <h2 data-chat-title>Select a dataset to start</h2>
+                @if (Model.SelectedSession != null)
+                {
+                    <h2 data-chat-title>@Model.SelectedSession.Title</h2>
+                }
+                else if (Model.SelectedDataset != null)
+                {
+                    <h2 data-chat-title>Select or create a chat session</h2>
+                }
+                else
+                {
+                    <h2 data-chat-title>Select a dataset to start</h2>
+                }
             </div>
-            <button class="secondary-button" type="button" data-new-session>New session</button>
+            @if (Model.SelectedDatasetId.HasValue)
+            {
+                <form asp-controller="ChatSessions" asp-action="Create" method="post" style="margin: 0; padding: 0;">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="datasetId" value="@Model.SelectedDatasetId" />
+                    <input type="hidden" name="title" value="Dataset chat" />
+                    <button class="secondary-button" type="submit">New session</button>
+                </form>
+            }
         </div>
 
-        <div class="chat-stream" data-chat-stream aria-live="polite">
-            <div class="empty-state">
-                <h3>Ask questions grounded in your uploaded documents.</h3>
-                <p>Create or select a dataset, upload a document, then start a chat session.</p>
-            </div>
+        <div class="chat-stream" aria-live="polite" id="chatStream">
+            @if (Model.SelectedSession != null)
+            {
+                if (Model.MessageHistory.Count == 0)
+                {
+                    <div class="empty-state">
+                        <h3>Ask questions grounded in your uploaded documents.</h3>
+                        <p>Type your message below. The AI will retrieve the most relevant sections of your documents to provide answers.</p>
+                    </div>
+                }
+                else
+                {
+                    @foreach (var msg in Model.MessageHistory)
+                    {
+                        <div class="message @msg.Role.ToLower()">
+                            <div class="message-bubble">
+                                <p style="margin: 0; white-space: pre-wrap;">@msg.Content</p>
+                            </div>
+                            <div class="message-meta">
+                                @(msg.Role == "User" ? "You" : "Assistant") • @msg.CreatedAt.ToString("HH:mm")
+                            </div>
+                            @if (msg.Role == "Assistant")
+                            {
+                                <div class="citation-row" style="margin-top: 8px;">
+                                    <a class="citation-chip" 
+                                       href="?datasetId=@Model.SelectedDatasetId&sessionId=@Model.SelectedSessionId&citationId=@msg.MessageId"
+                                       style="text-decoration: none; display: inline-flex; align-items: center; justify-content: center; gap: 4px;">
+                                        🔍 View Sources
+                                    </a>
+                                </div>
+                            }
+                        </div>
+                    }
+                }
+            }
+            else
+            {
+                <div class="empty-state">
+                    <h3>Ask questions grounded in your uploaded documents.</h3>
+                    <p>Create or select a dataset, upload a document, then start a chat session.</p>
+                </div>
+            }
         </div>
 
-        <form class="composer" data-chat-form>
-            <textarea name="message" rows="1" placeholder="Ask about this dataset..." required></textarea>
-            <button type="submit">Send</button>
-        </form>
+        @if (Model.SelectedSessionId.HasValue)
+        {
+            <form asp-controller="ChatSessions" asp-action="SendMessage" method="post" class="composer">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="datasetId" value="@Model.SelectedDatasetId" />
+                <input type="hidden" name="sessionId" value="@Model.SelectedSessionId" />
+                <textarea name="question" rows="1" placeholder="Ask about this dataset..." required id="chatQuestionTextarea"></textarea>
+                <button type="submit">Send</button>
+            </form>
+        }
     </main>
 
+    <!-- Cột 3: Hiển thị trích dẫn tài liệu tham chiếu (Reference Panel) -->
     <aside class="workspace-panel reference-panel" aria-label="Citation references">
         <div class="panel-header">
             <div>
@@ -88,37 +337,67 @@
                 <h2>Sources</h2>
             </div>
         </div>
-        <div class="reference-empty" data-reference-empty>
-            <h3>No citation selected</h3>
-            <p>When an AI answer includes sources, select a reference to inspect the chunk and file name.</p>
-        </div>
-        <div class="reference-content" data-reference-content hidden></div>
+
+        @if (Model.SelectedMessageId.HasValue && Model.Citations.Count > 0)
+        {
+            <div class="reference-content">
+                @foreach (var c in Model.Citations)
+                {
+                    <div class="reference-card">
+                        <h3 title="@c.FileName">@c.FileName</h3>
+                        <p><strong>Page:</strong> @(c.PageNumber > 0 ? c.PageNumber.ToString() : "1")</p>
+                        <p><strong>Source label:</strong> @c.SourceLabel</p>
+                        <p style="margin-top: 6px; font-style: italic; background: var(--surface-muted); padding: 8px; border-radius: 6px; border-left: 3px solid var(--accent);">
+                            "@c.QuoteText"
+                        </p>
+                    </div>
+                }
+            </div>
+        }
+        else
+        {
+            <div class="reference-empty">
+                <h3>No citation selected</h3>
+                <p>When an AI answer includes sources, select a reference to inspect the chunk and file name.</p>
+            </div>
+        }
     </aside>
 </section>
 
-<template id="dataset-item-template">
-    <button class="dataset-item" type="button">
-        <span class="dataset-name"></span>
-        <span class="dataset-meta"></span>
-    </button>
-</template>
+@section Scripts {
+    <script>
+        // Tự động cuộn khung chat xuống dưới cùng khi có tin nhắn mới hoặc tải trang
+        const chatStream = document.getElementById("chatStream");
+        if (chatStream) {
+            chatStream.scrollTop = chatStream.scrollHeight;
+        }
 
-<template id="document-item-template">
-    <div class="document-item">
-        <div>
-            <strong class="document-name"></strong>
-            <span class="document-meta"></span>
-        </div>
-        <div class="progress-track" aria-hidden="true">
-            <span class="progress-fill"></span>
-        </div>
-        <span class="status-pill"></span>
-    </div>
-</template>
+        // Hỗ trợ gửi tin nhắn bằng tổ hợp phím Enter (nhưng cho phép Shift+Enter để xuống dòng)
+        const textarea = document.getElementById("chatQuestionTextarea");
+        if (textarea) {
+            textarea.addEventListener("keydown", function(e) {
+                if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    this.form.submit();
+                }
+            });
+        }
 
-<template id="session-item-template">
-    <button class="session-item" type="button">
-        <span class="session-name"></span>
-        <span class="session-meta"></span>
-    </button>
-</template>
+        // Mobile Tab switching logic
+        const tabBtns = document.querySelectorAll(".mobile-tab-btn");
+        const workspace = document.querySelector(".workspace");
+        if (tabBtns && workspace) {
+            tabBtns.forEach(btn => {
+                btn.addEventListener("click", () => {
+                    // Remove active class from all buttons
+                    tabBtns.forEach(b => b.classList.remove("active"));
+                    // Add active class to clicked button
+                    btn.classList.add("active");
+                    // Update workspace active tab attribute
+                    const target = btn.getAttribute("data-target");
+                    workspace.setAttribute("data-active-tab", target);
+                });
+            });
+        }
+    </script>
+}

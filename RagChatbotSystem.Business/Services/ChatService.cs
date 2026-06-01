@@ -6,20 +6,26 @@ using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using RagChatbotSystem.Business.DTOs;
 using RagChatbotSystem.Business.Interfaces;
-using RagChatbotSystem.DataAccess.Data;
+using RagChatbotSystem.DataAccess.Repositories;
 using RagChatbotSystem.DataAccess.Models;
 
 namespace RagChatbotSystem.Business.Services
 {
     public class ChatService : IChatService
     {
-        private readonly AppDbContext _context;
+        private readonly IUnitOfWork _unitOfWork;
+        private readonly IGenericRepository<ChatSession> _sessionRepository;
+        private readonly IGenericRepository<ChatMessage> _messageRepository;
+        private readonly IGenericRepository<Citation> _citationRepository;
         private readonly IRagApiClient _ragApiClient;
         private readonly ILlmService _llmService;
 
-        public ChatService(AppDbContext context, IRagApiClient ragApiClient, ILlmService llmService)
+        public ChatService(IUnitOfWork unitOfWork, IRagApiClient ragApiClient, ILlmService llmService)
         {
-            _context = context;
+            _unitOfWork = unitOfWork;
+            _sessionRepository = _unitOfWork.Repository<ChatSession>();
+            _messageRepository = _unitOfWork.Repository<ChatMessage>();
+            _citationRepository = _unitOfWork.Repository<Citation>();
             _ragApiClient = ragApiClient;
             _llmService = llmService;
         }
@@ -31,7 +37,7 @@ namespace RagChatbotSystem.Business.Services
                 throw new ArgumentException("Question is required.", nameof(userQuestion));
             }
 
-            var session = await _context.ChatSessions.FirstOrDefaultAsync(s => s.SessionId == sessionId);
+            var session = await _sessionRepository.GetQueryable().FirstOrDefaultAsync(s => s.SessionId == sessionId);
             if (session == null)
             {
                 throw new ArgumentException("Chat session not found.");
@@ -47,7 +53,7 @@ namespace RagChatbotSystem.Business.Services
                 CreatedAt = now
             };
 
-            _context.ChatMessages.Add(userMessage);
+            await _messageRepository.AddAsync(userMessage);
 
             var retrieveResult = await _ragApiClient.RetrieveAsync(new RetrieveRequestDto
             {
@@ -87,17 +93,18 @@ namespace RagChatbotSystem.Business.Services
                 CreatedAt = DateTime.UtcNow
             };
 
-            _context.ChatMessages.Add(assistantMessage);
+            await _messageRepository.AddAsync(assistantMessage);
             session.UpdatedAt = assistantMessage.CreatedAt;
 
             var citations = BuildCitations(contextDocs, assistantMessage.MessageId);
             if (citations.Count > 0)
             {
-                _context.Citations.AddRange(citations);
+                await _citationRepository.AddRangeAsync(citations);
             }
 
             session.UpdatedAt = DateTime.UtcNow;
-            await _context.SaveChangesAsync();
+            _sessionRepository.Update(session);
+            await _unitOfWork.SaveChangesAsync();
 
             return new SendChatMessageResponse(
                 ToDto(userMessage),

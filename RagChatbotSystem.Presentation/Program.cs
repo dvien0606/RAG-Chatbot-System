@@ -4,6 +4,7 @@ using Pgvector;
 using RagChatbotSystem.Business.Interfaces;
 using RagChatbotSystem.Business.Services;
 using RagChatbotSystem.Presentation.Services;
+using RagChatbotSystem.DataAccess.Repositories;
 
 namespace RagChatbotSystem.Presentation
 {
@@ -14,6 +15,16 @@ namespace RagChatbotSystem.Presentation
             var builder = WebApplication.CreateBuilder(args);
 
             builder.Services.AddControllersWithViews();
+
+            // Đăng ký Cookie Authentication
+            builder.Services.AddAuthentication(Microsoft.AspNetCore.Authentication.Cookies.CookieAuthenticationDefaults.AuthenticationScheme)
+                .AddCookie(options =>
+                {
+                    options.LoginPath = "/Account/Login";
+                    options.AccessDeniedPath = "/Account/AccessDenied";
+                    options.ExpireTimeSpan = TimeSpan.FromDays(7);
+                });
+
 
             // Đăng ký Swagger Services
             builder.Services.AddEndpointsApiExplorer();
@@ -56,10 +67,13 @@ namespace RagChatbotSystem.Presentation
                 }
             });
 
+            // Đăng ký các dịch vụ Data Access Layer
+            builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
+
             // Đăng ký các dịch vụ Business Layer
             builder.Services.AddScoped<IUserService, UserService>();
             builder.Services.AddScoped<IDatasetService, DatasetService>();
-            builder.Services.AddScoped<IFileStorageService, LocalFileStorageService>();
+            builder.Services.AddScoped<IFileStorageService, GoogleDriveStorageService>();
             builder.Services.AddScoped<IDocumentService, DocumentService>();
             builder.Services.AddScoped<IChatService, ChatService>();
             builder.Services.AddScoped<IChatSessionService, ChatSessionService>();
@@ -87,6 +101,8 @@ namespace RagChatbotSystem.Presentation
             app.UseStaticFiles();
 
             app.UseRouting();
+
+            app.UseAuthentication();
 
             app.UseAuthorization();
 

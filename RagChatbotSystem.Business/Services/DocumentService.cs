@@ -12,7 +12,7 @@ using Microsoft.Extensions.Logging;
 using Pgvector;
 using RagChatbotSystem.Business.DTOs;
 using RagChatbotSystem.Business.Interfaces;
-using RagChatbotSystem.DataAccess.Data;
+using RagChatbotSystem.DataAccess.Repositories;
 using RagChatbotSystem.DataAccess.Models;
 using UglyToad.PdfPig;
 
@@ -24,14 +24,24 @@ namespace RagChatbotSystem.Business.Services
         private const int DefaultChunkOverlap = 120;
         private const string EmbeddingModel = "sentence-transformers/all-MiniLM-L6-v2";
 
-        private readonly AppDbContext _context;
+        private readonly IUnitOfWork _unitOfWork;
+        private readonly IGenericRepository<Document> _documentRepository;
+        private readonly IGenericRepository<Dataset> _datasetRepository;
+        private readonly IGenericRepository<User> _userRepository;
+        private readonly IGenericRepository<Chunk> _chunkRepository;
+        private readonly IGenericRepository<VectorRecord> _vectorRecordRepository;
         private readonly IRagApiClient _ragApiClient;
         private readonly IFileStorageService _fileStorageService;
         private readonly ILogger<DocumentService> _logger;
 
-        public DocumentService(AppDbContext context, IRagApiClient ragApiClient, IFileStorageService fileStorageService, ILogger<DocumentService> logger)
+        public DocumentService(IUnitOfWork unitOfWork, IRagApiClient ragApiClient, IFileStorageService fileStorageService, ILogger<DocumentService> logger)
         {
-            _context = context;
+            _unitOfWork = unitOfWork;
+            _documentRepository = _unitOfWork.Repository<Document>();
+            _datasetRepository = _unitOfWork.Repository<Dataset>();
+            _userRepository = _unitOfWork.Repository<User>();
+            _chunkRepository = _unitOfWork.Repository<Chunk>();
+            _vectorRecordRepository = _unitOfWork.Repository<VectorRecord>();
             _ragApiClient = ragApiClient;
             _fileStorageService = fileStorageService;
             _logger = logger;
@@ -39,13 +49,13 @@ namespace RagChatbotSystem.Business.Services
 
         public async Task<IReadOnlyList<DocumentDto>> GetDocumentsByDatasetAsync(Guid datasetId, CancellationToken cancellationToken = default)
         {
-            var datasetExists = await _context.Datasets.AnyAsync(d => d.DatasetId == datasetId, cancellationToken);
+            var datasetExists = await _datasetRepository.GetQueryable().AnyAsync(d => d.DatasetId == datasetId, cancellationToken);
             if (!datasetExists)
             {
                 throw new KeyNotFoundException("Dataset was not found.");
             }
 
-            return await _context.Documents
+            return await _documentRepository.GetQueryable()
                 .AsNoTracking()
                 .Where(d => d.DatasetId == datasetId)
                 .OrderByDescending(d => d.UploadedAt)
@@ -65,7 +75,7 @@ namespace RagChatbotSystem.Business.Services
 
         public async Task<DocumentDto?> GetDocumentAsync(Guid documentId, CancellationToken cancellationToken = default)
         {
-            return await _context.Documents
+            return await _documentRepository.GetQueryable()
                 .AsNoTracking()
                 .Where(d => d.DocumentId == documentId)
                 .Select(d => new DocumentDto(
@@ -94,13 +104,13 @@ namespace RagChatbotSystem.Business.Services
                 throw new ArgumentException("File must not be empty.", nameof(fileSize));
             }
 
-            var datasetExists = await _context.Datasets.AnyAsync(d => d.DatasetId == datasetId, cancellationToken);
+            var datasetExists = await _datasetRepository.GetQueryable().AnyAsync(d => d.DatasetId == datasetId, cancellationToken);
             if (!datasetExists)
             {
                 throw new InvalidOperationException("Dataset was not found.");
             }
 
-            var userExists = await _context.Users.AnyAsync(u => u.UserId == userId, cancellationToken);
+            var userExists = await _userRepository.GetQueryable().AnyAsync(u => u.UserId == userId, cancellationToken);
             if (!userExists)
             {
                 throw new InvalidOperationException("Uploader user was not found.");
@@ -123,15 +133,15 @@ namespace RagChatbotSystem.Business.Services
                 UpdatedAt = now
             };
 
-            _context.Documents.Add(document);
-            await _context.SaveChangesAsync(cancellationToken);
+            await _documentRepository.AddAsync(document, cancellationToken);
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
 
             return ToDto(document);
         }
 
         public async Task<DocumentDto> ProcessUploadedDocumentAsync(Guid documentId, CancellationToken cancellationToken = default)
         {
-            var document = await _context.Documents.FirstOrDefaultAsync(d => d.DocumentId == documentId, cancellationToken);
+            var document = await _documentRepository.GetQueryable().FirstOrDefaultAsync(d => d.DocumentId == documentId, cancellationToken);
             if (document == null)
             {
                 throw new KeyNotFoundException("Document was not found.");
@@ -139,7 +149,8 @@ namespace RagChatbotSystem.Business.Services
 
             document.Status = "Processing";
             document.UpdatedAt = DateTime.UtcNow;
-            await _context.SaveChangesAsync(cancellationToken);
+            _documentRepository.Update(document);
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
 
             try
             {
@@ -156,20 +167,22 @@ namespace RagChatbotSystem.Business.Services
 
                 document.Status = "Completed";
                 document.UpdatedAt = DateTime.UtcNow;
-                await _context.SaveChangesAsync(cancellationToken);
+                _documentRepository.Update(document);
+                await _unitOfWork.SaveChangesAsync(cancellationToken);
 
                 return ToDto(document);
             }
             catch
             {
-                _context.ChangeTracker.Clear();
+                _unitOfWork.ClearTracker();
 
-                var failedDocument = await _context.Documents.FirstOrDefaultAsync(d => d.DocumentId == documentId, cancellationToken);
+                var failedDocument = await _documentRepository.GetQueryable().FirstOrDefaultAsync(d => d.DocumentId == documentId, cancellationToken);
                 if (failedDocument != null)
                 {
                     failedDocument.Status = "Failed";
                     failedDocument.UpdatedAt = DateTime.UtcNow;
-                    await _context.SaveChangesAsync(cancellationToken);
+                    _documentRepository.Update(failedDocument);
+                    await _unitOfWork.SaveChangesAsync(cancellationToken);
                 }
 
                 throw;
@@ -178,13 +191,13 @@ namespace RagChatbotSystem.Business.Services
 
         public async Task<Document?> ProcessAndIndexDocumentAsync(Guid datasetId, Guid userId, string fileName, string rawText)
         {
-            var dataset = await _context.Datasets.FindAsync(datasetId);
+            var dataset = await _datasetRepository.GetByIdAsync(datasetId);
             if (dataset == null)
             {
                 throw new ArgumentException("Dataset not found.");
             }
 
-            using var transaction = await _context.Database.BeginTransactionAsync();
+            using var transaction = await _unitOfWork.BeginTransactionAsync();
             try
             {
                 var now = DateTime.UtcNow;
@@ -202,7 +215,7 @@ namespace RagChatbotSystem.Business.Services
                     UpdatedAt = now
                 };
 
-                _context.Documents.Add(document);
+                await _documentRepository.AddAsync(document);
 
                 var chunks = SplitTextSegments(
                     new List<ExtractedTextSegment> { new(rawText, 1) },
@@ -216,7 +229,8 @@ namespace RagChatbotSystem.Business.Services
 
                 document.Status = "Completed";
                 document.UpdatedAt = DateTime.UtcNow;
-                await _context.SaveChangesAsync();
+                _documentRepository.Update(document);
+                await _unitOfWork.SaveChangesAsync();
                 await transaction.CommitAsync();
 
                 return document;
@@ -231,7 +245,7 @@ namespace RagChatbotSystem.Business.Services
 
         public async Task<bool> DeleteDocumentAsync(Guid documentId)
         {
-            var document = await _context.Documents.FindAsync(documentId);
+            var document = await _documentRepository.GetByIdAsync(documentId);
             if (document == null) return false;
 
             var pythonDeleted = await _ragApiClient.DeleteDocumentAsync(documentId);
@@ -240,8 +254,8 @@ namespace RagChatbotSystem.Business.Services
                 _logger.LogWarning("Failed to delete document {DocumentId} from Python RAG index.", documentId);
             }
 
-            _context.Documents.Remove(document);
-            await _context.SaveChangesAsync();
+            _documentRepository.Delete(document);
+            await _unitOfWork.SaveChangesAsync();
             await _fileStorageService.DeleteFileIfExistsAsync(document.FilePath);
 
             return true;
@@ -305,18 +319,18 @@ namespace RagChatbotSystem.Business.Services
 
         private async Task IndexExistingDocumentAsync(Document document, IReadOnlyList<TextChunk> chunks, CancellationToken cancellationToken)
         {
-            using var transaction = await _context.Database.BeginTransactionAsync(cancellationToken);
+            using var transaction = await _unitOfWork.BeginTransactionAsync(cancellationToken);
             try
             {
-                var existingChunks = await _context.Chunks
+                var existingChunks = await _chunkRepository.GetQueryable()
                     .Where(c => c.DocumentId == document.DocumentId)
                     .ToListAsync(cancellationToken);
 
                 if (existingChunks.Count > 0)
                 {
                     await _ragApiClient.DeleteDocumentAsync(document.DocumentId);
-                    _context.Chunks.RemoveRange(existingChunks);
-                    await _context.SaveChangesAsync(cancellationToken);
+                    _chunkRepository.DeleteRange(existingChunks);
+                    await _unitOfWork.SaveChangesAsync(cancellationToken);
                 }
 
                 await AddIndexedChunksAsync(document, chunks, rebuildCache: false, cancellationToken);
@@ -368,7 +382,7 @@ namespace RagChatbotSystem.Business.Services
                 });
             }
 
-            _context.Chunks.AddRange(chunkEntities);
+            await _chunkRepository.AddRangeAsync(chunkEntities, cancellationToken);
 
             var indexResponse = await _ragApiClient.IndexDocumentsAsync(new IndexRequestDto
             {
@@ -396,8 +410,8 @@ namespace RagChatbotSystem.Business.Services
                 });
             }
 
-            _context.VectorRecords.AddRange(vectorRecords);
-            await _context.SaveChangesAsync(cancellationToken);
+            await _vectorRecordRepository.AddRangeAsync(vectorRecords, cancellationToken);
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
         }
 
         private static async Task<List<ExtractedTextSegment>> ExtractTxtAsync(Stream stream, CancellationToken cancellationToken)

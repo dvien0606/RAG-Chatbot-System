@@ -1,0 +1,187 @@
+@{
+    ViewData["Title"] = "Admin Dashboard";
+    var users = ViewBag.Users as IReadOnlyList<RagChatbotSystem.Business.DTOs.UserDto> ?? new List<RagChatbotSystem.Business.DTOs.UserDto>();
+    var datasets = ViewBag.Datasets as IReadOnlyList<RagChatbotSystem.Business.DTOs.DatasetDto> ?? new List<RagChatbotSystem.Business.DTOs.DatasetDto>();
+}
+
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="fw-bold" style="color: var(--ink); margin: 0; background: linear-gradient(135deg, #fff 30%, var(--accent-strong) 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Admin Dashboard</h2>
+            <p class="text-muted m-0 mt-1">Manage system users, approve datasets, and control permissions.</p>
+        </div>
+        <a asp-controller="Home" asp-action="Index" class="btn text-white fw-bold" style="background: linear-gradient(135deg, var(--accent) 0%, #a21caf 100%); border: none; box-shadow: 0 4px 15px rgba(217, 70, 239, 0.3); border-radius: 8px; font-size: 0.85rem; padding: 10px 18px; text-transform: uppercase;">
+            Back to Workspace
+        </a>
+    </div>
+
+    <!-- Section: Datasets Management -->
+    <div class="card border-0 mb-5" style="border-radius: 12px; background: var(--surface); border: 1px solid var(--line) !important; box-shadow: var(--shadow); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);">
+        <div class="card-header bg-transparent border-0 pt-4 px-4">
+            <h4 class="fw-bold m-0" style="color: var(--ink);">Dataset Approvals & Permissions</h4>
+            <p class="text-muted small m-0 mt-1">Review datasets uploaded by users and manage target student permissions.</p>
+        </div>
+        <div class="card-body px-4 pb-4">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle" style="color: var(--ink);">
+                    <thead>
+                        <tr style="border-bottom: 2px solid var(--line); color: var(--muted); font-size: 0.85rem; text-transform: uppercase;">
+                            <th class="py-3">Dataset Name</th>
+                            <th class="py-3">Description</th>
+                            <th class="py-3">Type</th>
+                            <th class="py-3">Status</th>
+                            <th class="py-3 text-end">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (!datasets.Any())
+                        {
+                            <tr>
+                                <td colspan="5" class="text-center text-muted py-4">No datasets available in the system.</td>
+                            </tr>
+                        }
+                        else
+                        {
+                            foreach (var ds in datasets)
+                            {
+                                <tr style="border-bottom: 1px solid var(--line); transition: background-color 0.2s;">
+                                    <td class="py-3">
+                                        <div class="fw-bold" style="color: var(--ink);">@ds.Name</div>
+                                        <div class="text-muted small" style="font-size: 0.75rem;">ID: @ds.DatasetId</div>
+                                    </td>
+                                    <td class="py-3">@(string.IsNullOrEmpty(ds.Description) ? "No description" : ds.Description)</td>
+                                    <td class="py-3">
+                                        @if (ds.IsPublic)
+                                        {
+                                            <span class="status-pill">Public</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="status-pill text-muted" style="background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.1);">Private</span>
+                                        }
+                                    </td>
+                                    <td class="py-3">
+                                        @if (ds.IsApproved)
+                                        {
+                                            <span class="status-pill" style="background: rgba(16, 185, 129, 0.1); color: #10b981; border-color: rgba(16, 185, 129, 0.2);">Approved</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="status-pill processing">Pending Approval</span>
+                                        }
+                                    </td>
+                                    <td class="py-3 text-end">
+                                        <div class="d-flex justify-content-end gap-2">
+                                            <a asp-action="Permissions" asp-route-id="@ds.DatasetId" class="btn btn-outline-secondary btn-sm" style="border-radius: 6px; border-color: rgba(255,255,255,0.15); color: var(--ink); font-weight: 600;">
+                                                Manage Permissions
+                                            </a>
+                                            <form asp-action="ApproveDataset" method="post" class="m-0">
+                                                @Html.AntiForgeryToken()
+                                                <input type="hidden" name="id" value="@ds.DatasetId" />
+                                                @if (ds.IsApproved)
+                                                {
+                                                    <input type="hidden" name="approve" value="false" />
+                                                    <button type="submit" class="btn btn-danger btn-sm text-white" style="border-radius: 6px; font-weight: 600;">
+                                                        Unapprove
+                                                    </button>
+                                                }
+                                                else
+                                                {
+                                                    <input type="hidden" name="approve" value="true" />
+                                                    <button type="submit" class="btn btn-success btn-sm text-white" style="border-radius: 6px; font-weight: 600; background: #10b981; border: none; box-shadow: 0 0 10px rgba(16,185,129,0.3);">
+                                                        Approve
+                                                    </button>
+                                                }
+                                            </form>
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Section: Users Management -->
+    <div class="card border-0" style="border-radius: 12px; background: var(--surface); border: 1px solid var(--line) !important; box-shadow: var(--shadow); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);">
+        <div class="card-header bg-transparent border-0 pt-4 px-4">
+            <h4 class="fw-bold m-0" style="color: var(--ink);">System Users</h4>
+            <p class="text-muted small m-0 mt-1">View registered student and teacher profiles in the application.</p>
+        </div>
+        <div class="card-body px-4 pb-4">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle" style="color: var(--ink);">
+                    <thead>
+                        <tr style="border-bottom: 2px solid var(--line); color: var(--muted); font-size: 0.85rem; text-transform: uppercase;">
+                            <th class="py-3">Full Name</th>
+                            <th class="py-3">Email Address</th>
+                            <th class="py-3">Role</th>
+                            <th class="py-3">Created At</th>
+                            <th class="py-3">Status</th>
+                            <th class="py-3 text-end">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var user in users)
+                        {
+                            <tr style="border-bottom: 1px solid var(--line);">
+                                <td class="py-3 fw-bold" style="color: var(--ink);">@user.FullName</td>
+                                <td class="py-3 text-muted">@user.Email</td>
+                                <td class="py-3">
+                                    @if (user.Role == "Admin")
+                                    {
+                                        <span class="status-pill" style="background: rgba(239, 68, 68, 0.1); color: var(--danger); border-color: rgba(239, 68, 68, 0.2);">Admin</span>
+                                    }
+                                    else if (user.Role == "Teacher")
+                                    {
+                                        <span class="status-pill" style="background: rgba(217, 70, 239, 0.1); color: var(--accent); border-color: rgba(217, 70, 239, 0.25);">Teacher</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="status-pill">Student</span>
+                                    }
+                                </td>
+                                <td class="py-3 text-muted">@user.CreatedAt.ToLocalTime().ToString("g")</td>
+                                <td class="py-3">
+                                    @if (user.IsApproved)
+                                    {
+                                        <span class="status-pill" style="background: rgba(16, 185, 129, 0.1); color: #10b981; border-color: rgba(16, 185, 129, 0.2);">Active</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="status-pill processing">Pending Approval</span>
+                                    }
+                                </td>
+                                <td class="py-3 text-end">
+                                    @if (user.Role == "Teacher")
+                                    {
+                                        <form asp-action="ApproveUser" method="post" class="m-0 d-inline-block">
+                                            @Html.AntiForgeryToken()
+                                            <input type="hidden" name="userId" value="@user.UserId" />
+                                            @if (user.IsApproved)
+                                            {
+                                                <input type="hidden" name="approve" value="false" />
+                                                <button type="submit" class="btn btn-danger btn-sm text-white" style="border-radius: 6px; font-weight: 600;">
+                                                    Deactivate
+                                                </button>
+                                            }
+                                            else
+                                            {
+                                                <input type="hidden" name="approve" value="true" />
+                                                <button type="submit" class="btn btn-success btn-sm text-white" style="border-radius: 6px; font-weight: 600; background: #10b981; border: none; box-shadow: 0 0 10px rgba(16,185,129,0.3);">
+                                                    Approve
+                                                </button>
+                                            }
+                                        </form>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>

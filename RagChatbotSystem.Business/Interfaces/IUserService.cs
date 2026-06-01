@@ -11,5 +11,8 @@ namespace RagChatbotSystem.Business.Interfaces
         Task<IReadOnlyList<UserDto>> GetUsersAsync(CancellationToken cancellationToken = default);
         Task<UserDto?> GetUserAsync(Guid userId, CancellationToken cancellationToken = default);
         Task<UserDto> CreateUserAsync(CreateUserRequest request, CancellationToken cancellationToken = default);
+        Task<UserDto?> AuthenticateUserAsync(string email, string password, CancellationToken cancellationToken = default);
+        Task<bool> ApproveUserAsync(Guid userId, bool approve, CancellationToken cancellationToken = default);
     }
 }
+
