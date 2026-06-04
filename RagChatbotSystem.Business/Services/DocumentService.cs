@@ -484,9 +484,11 @@ namespace RagChatbotSystem.Business.Services
 
             foreach (var page in pdf.GetPages())
             {
-                if (!string.IsNullOrWhiteSpace(page.Text))
+                var words = page.GetWords();
+                var text = string.Join(" ", words.Select(w => w.Text));
+                if (!string.IsNullOrWhiteSpace(text))
                 {
-                    segments.Add(new ExtractedTextSegment(page.Text, page.Number));
+                    segments.Add(new ExtractedTextSegment(text, page.Number));
                 }
             }
 
