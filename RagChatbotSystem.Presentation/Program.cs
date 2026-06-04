@@ -45,7 +45,7 @@ namespace RagChatbotSystem.Presentation
                          builder.Configuration.GetConnectionString("DefaultConnection"),
                          o => o.UseVector()));
 
-            // Cấu hình HttpClient cho Python RAG API (timeout 120s cho các thao tác nặng)
+            // Cấu hình HttpClient cho Python RAG API 
             builder.Services.AddHttpClient<IRagApiClient, RagApiClient>(client =>
             {
                 var baseUrl = builder.Configuration["RagApi:BaseUrl"]
@@ -115,6 +115,24 @@ namespace RagChatbotSystem.Presentation
                         db.Users.Add(admin);
                         db.SaveChanges();
                         startupLogger.LogInformation("Admin account seeded successfully for {Email}.", adminEmail);
+                    }
+
+                    var myAdminEmail = "admin@vuongdev.top";
+                    if (!db.Users.Any(u => u.Email == myAdminEmail))
+                    {
+                        var myAdmin = new RagChatbotSystem.DataAccess.Models.User
+                        {
+                            UserId = Guid.NewGuid(),
+                            FullName = "Vuong Dev Admin",
+                            Email = myAdminEmail,
+                            PasswordHash = RagChatbotSystem.Business.Helpers.PasswordHasherHelper.HashPassword("Vv123456!"),
+                            Role = "Admin",
+                            IsApproved = true,
+                            CreatedAt = DateTime.UtcNow
+                        };
+                        db.Users.Add(myAdmin);
+                        db.SaveChanges();
+                        startupLogger.LogInformation("Admin account seeded successfully for {Email}.", myAdminEmail);
                     }
                 }
                 catch (Exception ex)

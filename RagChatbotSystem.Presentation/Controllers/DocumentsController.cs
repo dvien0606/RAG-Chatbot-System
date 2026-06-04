@@ -115,5 +115,20 @@ namespace RagChatbotSystem.Presentation.Controllers
                 return RedirectToAction("Index", "Home", new { datasetId, error = $"Xóa tài liệu thất bại: {ex.Message}" });
             }
         }
+
+        [HttpGet]
+        public async Task<IActionResult> GetChunks(Guid documentId)
+        {
+            try
+            {
+                var chunks = await _documentService.GetDocumentChunksAsync(documentId);
+                return Json(chunks);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to retrieve document chunks.");
+                return BadRequest(new { error = $"Không thể lấy danh sách phân đoạn: {ex.Message}" });
+            }
+        }
     }
 }

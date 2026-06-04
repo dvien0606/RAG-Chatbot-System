@@ -69,6 +69,21 @@ namespace RagChatbotSystem.Business.Services
             });
 
             var datasetIdStr = session.DatasetId.ToString();
+            
+            _logger.LogInformation("Retrieve returned {Count} documents from RAG API for query '{Query}'. Filter DatasetId: '{DatasetId}'",
+                retrieveResult.Documents?.Count ?? 0, userQuestion, datasetIdStr);
+
+            if (retrieveResult.Documents != null)
+            {
+                for (int i = 0; i < retrieveResult.Documents.Count; i++)
+                {
+                    var doc = retrieveResult.Documents[i];
+                    var hasDsId = doc.Metadata.TryGetValue("dataset_id", out var dsIdVal);
+                    _logger.LogInformation("Candidate {Index}: Content length={Length}, has dataset_id={HasDsId}, dataset_id value='{DsIdVal}'",
+                        i, doc.PageContent?.Length ?? 0, hasDsId, dsIdVal);
+                }
+            }
+
             var contextDocs = retrieveResult.Documents
                 .Where(doc => doc.Metadata.TryGetValue("dataset_id", out var dsId)
                     && string.Equals(dsId?.ToString(), datasetIdStr, StringComparison.OrdinalIgnoreCase))

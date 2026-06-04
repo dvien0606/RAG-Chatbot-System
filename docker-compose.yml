@@ -26,7 +26,7 @@ services:
     container_name: rag-retrieval-api
     restart: always
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
     environment:
       - HF_TOKEN=${HF_TOKEN:-}
     volumes:
@@ -43,7 +43,7 @@ services:
     environment:
       - ConnectionStrings__DefaultConnection=Host=db;Port=5432;Database=RagChatbotSystemDb;Username=postgres;Password=${DB_PASSWORD:-rag_db_password}
       - RagApi__BaseUrl=http://rag-api:8000
-      - GoogleDrive__CredentialJsonPath=/app/google-credentials.json
+      - GoogleDrive__CredentialJsonPath=/app/credentials/google-credentials.json
       - GoogleDrive__TargetFolderId=${GOOGLE_DRIVE_FOLDER_ID:-}
       - Gemini__ApiKey=${GEMINI_API_KEY:-}
       - Groq__ApiKey=${GROQ_API_KEY:-}
@@ -52,7 +52,8 @@ services:
       - ADMIN_PASSWORD=${ADMIN_PASSWORD:-}
       - ASPNETCORE_ENVIRONMENT=Production
     volumes:
-      - ./google-credentials.json:/app/google-credentials.json:ro
+      - ./credentials:/app/credentials:ro
+      - web-uploads:/app/wwwroot/uploads
     depends_on:
       db:
         condition: service_healthy
@@ -62,3 +63,4 @@ services:
 volumes:
   pgdata:
   rag-cache:
+  web-uploads:

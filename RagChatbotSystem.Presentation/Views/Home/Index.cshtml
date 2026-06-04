@@ -125,11 +125,18 @@
                     <form asp-controller="Documents" asp-action="Upload" method="post" enctype="multipart/form-data" class="upload-form" id="upload-doc-form">
                         @Html.AntiForgeryToken()
                         <input type="hidden" name="datasetId" value="@Model.SelectedDatasetId" />
-                        <div style="position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; border: 2px dashed var(--line); border-radius: 12px; padding: 22px 16px; background: var(--surface-muted); text-align: center; cursor: pointer; transition: all 0.2s;" onclick="document.getElementById('file-upload').click();" onmouseover="this.style.borderColor='var(--accent)';" onmouseout="this.style.borderColor='var(--line)';">
-                            <span style="font-size: 1.8rem; margin-bottom: 6px;">📤</span>
-                            <span style="font-weight: 700; font-size: 0.9rem; color: var(--ink);">Upload documents for RAG</span>
-                            <span style="font-size: 0.75rem; color: var(--muted); margin-top: 4px;">PDF, TXT, MD, or DOCX files supported</span>
-                            <input id="file-upload" name="file" type="file" required style="display: none;" onchange="document.getElementById('upload-doc-form').submit();" />
+                        <div id="upload-dropzone" style="position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; border: 2px dashed var(--line); border-radius: 12px; padding: 22px 16px; background: var(--surface-muted); text-align: center; cursor: pointer; transition: all 0.2s;" onclick="if(!this.dataset.uploading) document.getElementById('file-upload').click();" onmouseover="this.style.borderColor='var(--accent)';" onmouseout="this.style.borderColor='var(--line)';">
+                            <div id="upload-idle-state" style="display: flex; flex-direction: column; align-items: center;">
+                                <span style="font-size: 1.8rem; margin-bottom: 6px;">📤</span>
+                                <span style="font-weight: 700; font-size: 0.9rem; color: var(--ink);">Upload documents for RAG</span>
+                                <span style="font-size: 0.75rem; color: var(--muted); margin-top: 4px;">PDF, TXT, MD, or DOCX files supported</span>
+                            </div>
+                            <div id="upload-loading-state" style="display: none; flex-direction: column; align-items: center; justify-content: center; padding: 10px 0;">
+                                <span style="display: inline-block; font-size: 1.8rem; margin-bottom: 6px; animation: spin 1s linear infinite;">⏳</span>
+                                <span style="font-weight: 700; font-size: 0.9rem; color: var(--accent);">Uploading &amp; Processing...</span>
+                                <span style="font-size: 0.75rem; color: var(--muted); margin-top: 4px;">Please wait while we extract text, chunk and index embeddings.</span>
+                            </div>
+                            <input id="file-upload" name="file" type="file" required style="display: none;" onchange="triggerUpload();" />
                         </div>
                     </form>
                 }
@@ -160,7 +167,13 @@
                             <div class="progress-track" aria-hidden="true">
                                 <span class="progress-fill" style="width: @(doc.Status.Equals("Processing", StringComparison.OrdinalIgnoreCase) ? "55%" : "100%")"></span>
                             </div>
-                            <span class="status-pill @doc.Status.ToLower()">@doc.Status</span>
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 6px;">
+                                <span class="status-pill @doc.Status.ToLower()">@doc.Status</span>
+                                @if (doc.Status.Equals("Completed", StringComparison.OrdinalIgnoreCase))
+                                {
+                                    <button class="view-chunks-btn" data-document-id="@doc.DocumentId" data-document-name="@doc.FileName" style="background: rgba(59, 130, 246, 0.08); border: 1px solid rgba(59, 130, 246, 0.25); border-radius: 6px; font-size: 0.75rem; font-weight: 600; color: var(--accent); cursor: pointer; padding: 2px 6px; transition: all 0.2s;" onmouseover="this.style.background='rgba(59, 130, 246, 0.18)';" onmouseout="this.style.background='rgba(59, 130, 246, 0.08)';">🔍 Xem Chunks</button>
+                                }
+                            </div>
                         </div>
                     }
                 </div>
@@ -638,5 +651,182 @@
                 });
             });
         }
+
+        function triggerUpload() {
+            const dropzone = document.getElementById('upload-dropzone');
+            const idleState = document.getElementById('upload-idle-state');
+            const loadingState = document.getElementById('upload-loading-state');
+            
+            if (dropzone) {
+                dropzone.dataset.uploading = "true";
+                dropzone.style.cursor = "not-allowed";
+                dropzone.style.borderColor = "var(--accent)";
+            }
+            if (idleState) idleState.style.display = "none";
+            if (loadingState) loadingState.style.display = "flex";
+            
+            document.getElementById('upload-doc-form').submit();
+        }
+
+        // View Chunks & Embeddings Logic
+        document.addEventListener("click", function(e) {
+            const btn = e.target.closest(".view-chunks-btn");
+            if (btn) {
+                e.preventDefault();
+                const docId = btn.getAttribute("data-document-id");
+                const docName = btn.getAttribute("data-document-name");
+                openChunksModal(docId, docName);
+            }
+        });
+
+        const chunksModal = document.getElementById("chunksModal");
+        const closeChunksModalBtn = document.getElementById("closeChunksModal");
+        if (closeChunksModalBtn && chunksModal) {
+            closeChunksModalBtn.onclick = function() {
+                chunksModal.style.display = "none";
+            }
+            window.onclick = function(event) {
+                if (event.target == chunksModal) {
+                    chunksModal.style.display = "none";
+                }
+            }
+        }
+
+        function openChunksModal(docId, docName) {
+            if (!chunksModal) return;
+            
+            document.getElementById("modalDocTitle").innerText = docName;
+            document.getElementById("modalDocSub").innerText = "Loading chunks and embeddings...";
+            
+            const body = document.getElementById("modalChunksBody");
+            body.innerHTML = `
+                <div style="padding: 40px; text-align: center; color: var(--muted);">
+                    <span style="display: inline-block; font-size: 2rem; margin-bottom: 8px; animation: spin 1s linear infinite;">⏳</span>
+                    <p style="font-size: 0.9rem; margin: 0;">Retrieving embeddings and index partitions from PostgreSQL database...</p>
+                </div>
+            `;
+            
+            chunksModal.style.display = "flex";
+            
+            fetch(`/Documents/GetChunks?documentId=${docId}`)
+                .then(response => {
+                    if (!response.ok) throw new Error("Failed to load chunks");
+                    return response.json();
+                })
+                .then(chunks => {
+                    document.getElementById("modalDocSub").innerText = `Found ${chunks.length} chunks generated for this document.`;
+                    
+                    if (chunks.length === 0) {
+                        body.innerHTML = `
+                            <div style="padding: 30px; text-align: center; color: var(--muted);">
+                                <p style="font-size: 0.9rem; margin: 0;">No index chunks found for this document. It might still be processing.</p>
+                            </div>
+                        `;
+                        return;
+                    }
+                    
+                    let html = "";
+                    chunks.forEach(c => {
+                        let vecPreview = "Embedding vector: No vector data found.";
+                        if (c.embedding && c.embedding.length > 0) {
+                            const dims = c.embedding.length;
+                            const previewValues = c.embedding.slice(0, 8).map(v => v.toFixed(5)).join(", ");
+                            vecPreview = `Embedding Vector (pgvector [384] - first 8 dimensions): [ ${previewValues}, ... ]`;
+                        }
+                        
+                        html += `
+                            <div class="chunk-card">
+                                <div class="chunk-meta-info">
+                                    <span><strong>Chunk Index:</strong> #${c.chunkIndex + 1}</span>
+                                    <span><strong>Page:</strong> ${c.pageNumber > 0 ? c.pageNumber : 1}</span>
+                                </div>
+                                <p class="chunk-text-content">${escapeHtml(c.content)}</p>
+                                <div class="vector-preview-box" title="Full size is 384 dimensions representation vector">
+                                    ✨ ${vecPreview}
+                                </div>
+                            </div>
+                        `;
+                    });
+                    
+                    body.innerHTML = html;
+                })
+                .catch(err => {
+                    console.error(err);
+                    document.getElementById("modalDocSub").innerText = "Error loading index data.";
+                    body.innerHTML = `
+                        <div style="padding: 30px; text-align: center; color: var(--danger);">
+                            <p style="font-size: 0.9rem; margin: 0;">Failed to fetch chunks: ${err.message}</p>
+                        </div>
+                    `;
+                });
+        }
     </script>
+
+    <!-- Modal Xem Chunks & Embeddings -->
+    <div id="chunksModal" style="display: none; position: fixed; z-index: 9999; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0, 0, 0, 0.55); backdrop-filter: blur(4px); align-items: center; justify-content: center;">
+        <div style="background-color: var(--surface); border: 1px solid var(--line); border-radius: 12px; width: 90%; max-width: 750px; max-height: 80vh; display: flex; flex-direction: column; box-shadow: 0 10px 25px rgba(0,0,0,0.25); animation: modalFadeIn 0.2s ease-out; margin: auto;">
+            <!-- Header -->
+            <div style="padding: 16px 20px; border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <h2 id="modalDocTitle" style="font-size: 1.1rem; font-weight: 700; margin: 0; color: var(--ink);">Document Chunks &amp; Embeddings</h2>
+                    <p id="modalDocSub" style="font-size: 0.8rem; color: var(--muted); margin: 2px 0 0 0;"></p>
+                </div>
+                <button id="closeChunksModal" style="background: none; border: none; font-size: 1.6rem; color: var(--muted); cursor: pointer; padding: 0; line-height: 1;">&times;</button>
+            </div>
+            <!-- Body -->
+            <div id="modalChunksBody" style="padding: 20px; overflow-y: auto; flex-grow: 1; display: flex; flex-direction: column; gap: 14px; background: var(--surface);">
+                <!-- Dynamic chunks -->
+            </div>
+        </div>
+    </div>
+
+    <style>
+        #chunksModal {
+            display: none;
+        }
+        @@keyframes modalFadeIn {
+            from { opacity: 0; transform: scale(0.96); }
+            to { opacity: 1; transform: scale(1); }
+        }
+        .chunk-card {
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            background: var(--surface-muted);
+            padding: 12px 16px;
+            transition: all 0.2s;
+        }
+        .chunk-card:hover {
+            border-color: var(--accent);
+            background: var(--surface);
+        }
+        .chunk-meta-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.78rem;
+            color: var(--muted);
+            border-bottom: 1px dashed var(--line);
+            padding-bottom: 6px;
+            margin-bottom: 8px;
+        }
+        .chunk-text-content {
+            font-size: 0.86rem;
+            color: var(--ink);
+            line-height: 1.5;
+            white-space: pre-wrap;
+            margin: 0;
+        }
+        .vector-preview-box {
+            margin-top: 10px;
+            background: rgba(139, 92, 246, 0.05);
+            border: 1px solid rgba(139, 92, 246, 0.15);
+            border-radius: 6px;
+            padding: 6px 10px;
+            font-family: monospace;
+            font-size: 0.72rem;
+            color: #7c3aed;
+            overflow-x: auto;
+            white-space: nowrap;
+        }
+    </style>
 }

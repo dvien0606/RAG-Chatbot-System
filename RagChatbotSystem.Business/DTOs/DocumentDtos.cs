@@ -20,4 +20,12 @@ namespace RagChatbotSystem.Business.DTOs
         string RelativePath,
         string FileType,
         long FileSize);
+
+    public sealed record ChunkDto(
+        Guid ChunkId,
+        Guid DocumentId,
+        int ChunkIndex,
+        string Content,
+        int PageNumber,
+        float[]? Embedding);
 }

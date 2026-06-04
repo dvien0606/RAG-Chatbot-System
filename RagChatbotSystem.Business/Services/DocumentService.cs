@@ -476,6 +476,25 @@ namespace RagChatbotSystem.Business.Services
                 : pageScores.OrderByDescending(p => p.Value).ThenBy(p => p.Key).First().Key;
         }
 
+        public async Task<IReadOnlyList<ChunkDto>> GetDocumentChunksAsync(Guid documentId, CancellationToken cancellationToken = default)
+        {
+            var chunks = await _chunkRepository.GetQueryable()
+                .AsNoTracking()
+                .Include(c => c.VectorRecord)
+                .Where(c => c.DocumentId == documentId)
+                .OrderBy(c => c.ChunkIndex)
+                .ToListAsync(cancellationToken);
+
+            return chunks.Select(c => new ChunkDto(
+                c.ChunkId,
+                c.DocumentId,
+                c.ChunkIndex,
+                c.Content,
+                c.PageNumber,
+                c.VectorRecord?.Embedding?.ToArray()
+            )).ToList();
+        }
+
         private static DocumentDto ToDto(Document document)
         {
             return new DocumentDto(
