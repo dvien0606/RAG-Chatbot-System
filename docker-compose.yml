@@ -7,7 +7,7 @@ services:
     restart: always
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-rag_db_password}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-root}
       POSTGRES_DB: RagChatbotSystemDb
     ports:
       - "5432:5432"
