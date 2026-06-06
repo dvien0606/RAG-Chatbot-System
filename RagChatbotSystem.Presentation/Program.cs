@@ -111,8 +111,7 @@ namespace RagChatbotSystem.Presentation
 
                         var admin = db.Users.FirstOrDefault(u =>
                             u.Email.ToLower() == adminEmail ||
-                            u.Username.ToLower() == adminUsername ||
-                            u.Role == "Admin");
+                            u.Username.ToLower() == adminUsername);
 
                         if (admin == null)
                         {

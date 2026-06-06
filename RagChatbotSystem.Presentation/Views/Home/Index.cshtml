@@ -6,10 +6,10 @@
 <section class="workspace" data-rag-app data-active-tab="@defaultMobileTab">
     <!-- Mobile Navigation Tabs (Only visible on mobile screens) -->
     <div class="mobile-workspace-tabs" aria-label="Workspace navigation">
-        <button class="mobile-tab-btn @(defaultMobileTab == "chat-panel" ? "active" : "")" data-target="chat-panel">ðŸ’¬ Chat</button>
-        <button class="mobile-tab-btn @(defaultMobileTab == "management-panel" ? "active" : "")" data-target="management-panel">ðŸ“š Knowledge</button>
+        <button class="mobile-tab-btn @(defaultMobileTab == "chat-panel" ? "active" : "")" data-target="chat-panel">&#128172; Chat</button>
+        <button class="mobile-tab-btn @(defaultMobileTab == "management-panel" ? "active" : "")" data-target="management-panel">&#128218; Knowledge</button>
         <button class="mobile-tab-btn @(defaultMobileTab == "reference-panel" ? "active" : "")" data-target="reference-panel">
-            ðŸ” Sources @(Model.Citations.Count > 0 ? $"({Model.Citations.Count})" : "")
+            &#128269; Sources @(Model.Citations.Count > 0 ? $"({Model.Citations.Count})" : "")
         </button>
     </div>
 
@@ -21,7 +21,7 @@
                 <h1>Knowledge workspace</h1>
             </div>
             <a class="icon-button" href="?datasetId=@Model.SelectedDatasetId&sessionId=@Model.SelectedSessionId" title="Refresh workspace" aria-label="Refresh workspace" style="text-decoration: none;">
-                <span aria-hidden="true">â†»</span>
+                <span aria-hidden="true">&#8635;</span>
             </a>
         </div>
 
@@ -42,7 +42,7 @@
         <!-- ThÃ´ng tin ngÆ°á»i dÃ¹ng Ä‘Äƒng nháº­p -->
         <div style="border-bottom: 1px solid var(--line); padding-bottom: 12px; margin-bottom: 16px;">
             <div style="display: flex; align-items: center; gap: 8px;">
-                <span style="font-size: 1.2rem;">ðŸ‘¤</span>
+                <span style="font-size: 1.2rem;">&#128100;</span>
                 <div>
                     <div class="fw-bold" style="color: var(--ink); font-size: 0.95rem;">@Model.SelectedUser?.FullName</div>
                     <div class="text-muted small text-uppercase" style="font-size: 0.75rem; font-weight: bold; color: var(--accent-strong);">Role: @User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value</div>
@@ -87,12 +87,12 @@
                             <span class="dataset-name" style="display: flex; align-items: center; gap: 4px;">
                                 @if (!ds.IsApproved)
                                 {
-                                    <span title="Pending approval" style="color: var(--warning);">â³</span>
+                                    <span title="Pending approval" style="color: var(--warning);">&#9203;</span>
                                 }
                                 @ds.Name
                                 @if (!ds.IsPublic)
                                 {
-                                    <span title="Private subject" style="font-size: 0.8rem; color: var(--muted);">ðŸ”’</span>
+                                    <span title="Private subject" style="font-size: 0.8rem; color: var(--muted);">&#128274;</span>
                                 }
                             </span>
                             <span class="dataset-meta">@ds.DocumentCount document(s)</span>
@@ -127,12 +127,12 @@
                         <input type="hidden" name="datasetId" value="@Model.SelectedDatasetId" />
                         <div id="upload-dropzone" style="position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; border: 2px dashed var(--line); border-radius: 12px; padding: 22px 16px; background: var(--surface-muted); text-align: center; cursor: pointer; transition: all 0.2s;" onclick="if(!this.dataset.uploading) document.getElementById('file-upload').click();" onmouseover="this.style.borderColor='var(--accent)';" onmouseout="this.style.borderColor='var(--line)';">
                             <div id="upload-idle-state" style="display: flex; flex-direction: column; align-items: center;">
-                                <span style="font-size: 1.8rem; margin-bottom: 6px;">ðŸ“¤</span>
+                                <span style="font-size: 1.8rem; margin-bottom: 6px;">&#128228;</span>
                                 <span style="font-weight: 700; font-size: 0.9rem; color: var(--ink);">Upload documents for RAG</span>
                                 <span style="font-size: 0.75rem; color: var(--muted); margin-top: 4px;">PDF, TXT, MD, or DOCX files supported</span>
                             </div>
                             <div id="upload-loading-state" style="display: none; flex-direction: column; align-items: center; justify-content: center; padding: 10px 0;">
-                                <span style="display: inline-block; font-size: 1.8rem; margin-bottom: 6px; animation: spin 1s linear infinite;">â³</span>
+                                <span style="display: inline-block; font-size: 1.8rem; margin-bottom: 6px; animation: spin 1s linear infinite;">&#9203;</span>
                                 <span style="font-weight: 700; font-size: 0.9rem; color: var(--accent);">Uploading &amp; Processing...</span>
                                 <span style="font-size: 0.75rem; color: var(--muted); margin-top: 4px;">Please wait while we extract text, chunk and index embeddings.</span>
                             </div>
@@ -155,17 +155,13 @@
                                     <span class="document-meta">@doc.FileType.ToUpper() - @Math.Ceiling(doc.FileSize / 1024.0) KB</span>
                                 </div>
                             </div>
-                            <div class="progress-track" aria-hidden="true">
-                                <span class="progress-fill" style="width: @(doc.Status.Equals("Processing", StringComparison.OrdinalIgnoreCase) ? "55%" : "100%")"></span>
-                            </div>
-                            <div class="document-actions-row">
-                                <span class="status-pill @doc.Status.ToLower()">@doc.Status</span>
-                                @if (doc.Status.Equals("Completed", StringComparison.OrdinalIgnoreCase))
-                                {
-                                    <button class="view-chunks-btn" data-document-id="@doc.DocumentId" data-document-name="@doc.FileName" style="background: rgba(59, 130, 246, 0.08); border: 1px solid rgba(59, 130, 246, 0.25); border-radius: 6px; font-size: 0.75rem; font-weight: 600; color: var(--accent); cursor: pointer; padding: 2px 6px; transition: all 0.2s;" onmouseover="this.style.background='rgba(59, 130, 246, 0.18)';" onmouseout="this.style.background='rgba(59, 130, 246, 0.08)';">View chunks</button>
-                                }
-                                @if (User.IsInRole("Admin") || User.IsInRole("Teacher"))
-                                {
+                            @if (User.IsInRole("Admin") || User.IsInRole("Teacher"))
+                            {
+                                <div class="progress-track" aria-hidden="true">
+                                    <span class="progress-fill" style="width: @(doc.Status.Equals("Processing", StringComparison.OrdinalIgnoreCase) ? "55%" : "100%")"></span>
+                                </div>
+                                <div class="document-actions-row">
+                                    <span class="status-pill @doc.Status.ToLower()">@doc.Status</span>
                                     <a class="document-preview-link" asp-controller="Documents" asp-action="Preview" asp-route-documentId="@doc.DocumentId" title="View indexed chunks and metadata">Preview chunks</a>
                                     <form asp-controller="Documents" asp-action="Delete" method="post" style="margin: 0; padding: 0;" onsubmit="return confirm('Are you sure you want to delete this document?');">
                                         @Html.AntiForgeryToken()
@@ -173,8 +169,8 @@
                                         <input type="hidden" name="documentId" value="@doc.DocumentId" />
                                         <button class="document-delete-button" type="submit" title="Delete document">Delete</button>
                                     </form>
-                                }
-                            </div>
+                                </div>
+                            }
                         </div>
                     }
                 </div>
@@ -213,7 +209,7 @@
                            href="?datasetId=@Model.SelectedDatasetId&sessionId=@ss.SessionId"
                            style="text-decoration: none;">
                             <span class="session-name">@ss.Title</span>
-                            <span class="session-meta">Updated @ss.UpdatedAt.ToString("HH:mm dd/MM")</span>
+                            <span class="session-meta">Updated @RagChatbotSystem.Presentation.Helpers.VietnamTime.Format(ss.UpdatedAt, "HH:mm dd/MM")</span>
                         </a>
                     }
                 </div>
@@ -290,7 +286,7 @@
                                 <p style="margin: 0; white-space: pre-wrap;">@msg.Content</p>
                             </div>
                             <div class="message-meta">
-                                @(msg.Role == "User" ? "You" : "Assistant") â€¢ @msg.CreatedAt.ToString("HH:mm")
+                                @(msg.Role == "User" ? "You" : "Assistant") &bull; @RagChatbotSystem.Presentation.Helpers.VietnamTime.Format(msg.CreatedAt, "HH:mm")
                             </div>
                             @if (msg.Role == "Assistant")
                             {
@@ -298,7 +294,7 @@
                                     <button class="citation-chip view-sources-btn" 
                                        data-message-id="@msg.MessageId"
                                        style="background: none; border: none; font: inherit; text-decoration: none; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 4px;">
-                                        ðŸ” View Sources
+                                        &#128269; View Sources
                                     </button>
                                 </div>
                             }
@@ -479,17 +475,6 @@
                 processingOverlay.style.display = "flex";
             });
         }
-        if (fileUploadInput && uploadDocForm && processingOverlay) {
-            fileUploadInput.addEventListener("change", function () {
-                if (fileUploadInput.files && fileUploadInput.files.length > 0) {
-                    processingOverlay.style.display = "flex";
-                    window.setTimeout(function () {
-                        uploadDocForm.requestSubmit();
-                    }, 50);
-                }
-            });
-        }
-
         function escapeHtml(str) {
             if (!str) return "";
             return str
@@ -528,7 +513,7 @@
                 questionInput.style.height = "auto";
                 
                 // 1. Hiá»ƒn thá»‹ tin nháº¯n cá»§a User ngay láº­p tá»©c lÃªn mÃ n hÃ¬nh
-                appendMessage("user", question, new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+                appendMessage("user", question, formatVietnamTime(new Date()));
                 
                 // 2. ThÃªm bong bÃ³ng chá» tráº£ lá»i (Loading) tá»« Assistant
                 const loadingBubble = appendLoadingBubble();
@@ -548,7 +533,7 @@
                 })
                 .then(response => {
                     if (!response.ok) {
-                        return response.json().then(data => { throw new Error(data.error || "Gá»­i tin nháº¯n tháº¥t báº¡i.") });
+                        return response.json().then(data => { throw new Error(data.error || "Gửi tin nhắn thất bại.") });
                     }
                     return response.json();
                 })
@@ -574,7 +559,7 @@
                     if (loadingBubble) loadingBubble.remove();
                     
                     // Hiá»ƒn thá»‹ bong bÃ³ng lá»—i
-                    appendMessage("assistant", `âŒ Lá»—i: ${err.message}`, new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+                    appendMessage("assistant", `Lỗi: ${err.message}`, formatVietnamTime(new Date()));
                     
                     if (chatStream) {
                         chatStream.scrollTop = chatStream.scrollHeight;
@@ -597,7 +582,7 @@
                         <button class="citation-chip view-sources-btn" 
                                 data-message-id="${messageId}"
                                 style="background: none; border: none; font: inherit; text-decoration: none; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 4px;">
-                            ðŸ” View Sources
+                            &#128269; View Sources
                         </button>
                     </div>
                 `;
@@ -608,11 +593,20 @@
                     <p style="margin: 0; white-space: pre-wrap;">${escapeHtml(content)}</p>
                 </div>
                 <div class="message-meta">
-                    ${role === "user" ? "You" : "Assistant"} â€¢ ${time}
+                    ${role === "user" ? "You" : "Assistant"} &bull; ${time}
                 </div>
                 ${citationHtml}
             `;
             chatStream.appendChild(messageDiv);
+        }
+
+        function formatVietnamTime(value) {
+            return new Intl.DateTimeFormat("vi-VN", {
+                timeZone: "Asia/Ho_Chi_Minh",
+                hour: "2-digit",
+                minute: "2-digit",
+                hour12: false
+            }).format(value);
         }
 
         function appendLoadingBubble() {
@@ -623,11 +617,11 @@
             loadingDiv.className = "message assistant loading-bubble";
             loadingDiv.innerHTML = `
                 <div class="message-bubble" style="display: flex; align-items: center; gap: 8px;">
-                    <span style="display: inline-block; animation: spin 1s linear infinite;">â³</span>
+                    <span style="display: inline-block; animation: spin 1s linear infinite;">&#9203;</span>
                     <span style="font-style: italic; color: var(--muted);">Searching knowledge base and thinking...</span>
                 </div>
                 <div class="message-meta">
-                    Assistant â€¢ Loading
+                    Assistant &bull; Loading
                 </div>
             `;
             chatStream.appendChild(loadingDiv);
@@ -657,7 +651,7 @@
                     </div>
                 </div>
                 <div style="padding: 24px; text-align: center; color: var(--muted);">
-                    <span style="display: inline-block; font-size: 1.5rem; margin-bottom: 8px; animation: spin 1.2s linear infinite;">â³</span>
+                    <span style="display: inline-block; font-size: 1.5rem; margin-bottom: 8px; animation: spin 1.2s linear infinite;">&#9203;</span>
                     <p style="font-size: 0.85rem; margin: 0;">Retrieving source documents...</p>
                 </div>
             `;
@@ -753,20 +747,28 @@
 
         function triggerUpload() {
             const fileInput = document.getElementById('file-upload');
+            const uploadForm = document.getElementById('upload-doc-form');
+            if (!fileInput || !uploadForm || uploadForm.dataset.submitting === "true") {
+                return;
+            }
+
             if (fileInput && fileInput.files && fileInput.files.length > 0) {
                 const file = fileInput.files[0];
                 const maxSize = 50 * 1024 * 1024; // 50MB
                 if (file.size > maxSize) {
-                    alert('KÃ­ch thÆ°á»›c tá»‡p vÆ°á»£t quÃ¡ giá»›i háº¡n cho phÃ©p (tá»‘i Ä‘a 50MB). Vui lÃ²ng chá»n tá»‡p nhá» hÆ¡n.');
+                    alert('Kích thước tệp vượt quá giới hạn cho phép (tối đa 50MB). Vui lòng chọn tệp nhỏ hơn.');
                     fileInput.value = ""; // Reset
                     return;
                 }
+            } else {
+                return;
             }
 
             const dropzone = document.getElementById('upload-dropzone');
             const idleState = document.getElementById('upload-idle-state');
             const loadingState = document.getElementById('upload-loading-state');
-            
+
+            uploadForm.dataset.submitting = "true";
             if (dropzone) {
                 dropzone.dataset.uploading = "true";
                 dropzone.style.cursor = "not-allowed";
@@ -774,169 +776,10 @@
             }
             if (idleState) idleState.style.display = "none";
             if (loadingState) loadingState.style.display = "flex";
-            
-            document.getElementById('upload-doc-form').submit();
+            if (processingOverlay) processingOverlay.style.display = "flex";
+
+            uploadForm.requestSubmit();
         }
 
-        // View Chunks & Embeddings Logic
-        document.addEventListener("click", function(e) {
-            const btn = e.target.closest(".view-chunks-btn");
-            if (btn) {
-                e.preventDefault();
-                const docId = btn.getAttribute("data-document-id");
-                const docName = btn.getAttribute("data-document-name");
-                openChunksModal(docId, docName);
-            }
-        });
-
-        const chunksModal = document.getElementById("chunksModal");
-        const closeChunksModalBtn = document.getElementById("closeChunksModal");
-        if (closeChunksModalBtn && chunksModal) {
-            closeChunksModalBtn.onclick = function() {
-                chunksModal.style.display = "none";
-            }
-            window.onclick = function(event) {
-                if (event.target == chunksModal) {
-                    chunksModal.style.display = "none";
-                }
-            }
-        }
-
-        function openChunksModal(docId, docName) {
-            if (!chunksModal) return;
-            
-            document.getElementById("modalDocTitle").innerText = docName;
-            document.getElementById("modalDocSub").innerText = "Loading chunks and embeddings...";
-            
-            const body = document.getElementById("modalChunksBody");
-            body.innerHTML = `
-                <div style="padding: 40px; text-align: center; color: var(--muted);">
-                    <span style="display: inline-block; font-size: 2rem; margin-bottom: 8px; animation: spin 1s linear infinite;">â³</span>
-                    <p style="font-size: 0.9rem; margin: 0;">Retrieving embeddings and index partitions from PostgreSQL database...</p>
-                </div>
-            `;
-            
-            chunksModal.style.display = "flex";
-            
-            fetch(`/Documents/GetChunks?documentId=${docId}`)
-                .then(response => {
-                    if (!response.ok) throw new Error("Failed to load chunks");
-                    return response.json();
-                })
-                .then(chunks => {
-                    document.getElementById("modalDocSub").innerText = `Found ${chunks.length} chunks generated for this document.`;
-                    
-                    if (chunks.length === 0) {
-                        body.innerHTML = `
-                            <div style="padding: 30px; text-align: center; color: var(--muted);">
-                                <p style="font-size: 0.9rem; margin: 0;">No index chunks found for this document. It might still be processing.</p>
-                            </div>
-                        `;
-                        return;
-                    }
-                    
-                    let html = "";
-                    chunks.forEach(c => {
-                        let vecPreview = "Embedding vector: No vector data found.";
-                        if (c.embedding && c.embedding.length > 0) {
-                            const dims = c.embedding.length;
-                            const previewValues = c.embedding.slice(0, 8).map(v => v.toFixed(5)).join(", ");
-                            vecPreview = `Embedding Vector (pgvector [384] - first 8 dimensions): [ ${previewValues}, ... ]`;
-                        }
-                        
-                        html += `
-                            <div class="chunk-card">
-                                <div class="chunk-meta-info">
-                                    <span><strong>Chunk Index:</strong> #${c.chunkIndex + 1}</span>
-                                    <span><strong>Page:</strong> ${c.pageNumber > 0 ? c.pageNumber : 1}</span>
-                                </div>
-                                <p class="chunk-text-content">${escapeHtml(c.content)}</p>
-                                <div class="vector-preview-box" title="Full size is 384 dimensions representation vector">
-                                    âœ¨ ${vecPreview}
-                                </div>
-                            </div>
-                        `;
-                    });
-                    
-                    body.innerHTML = html;
-                })
-                .catch(err => {
-                    console.error(err);
-                    document.getElementById("modalDocSub").innerText = "Error loading index data.";
-                    body.innerHTML = `
-                        <div style="padding: 30px; text-align: center; color: var(--danger);">
-                            <p style="font-size: 0.9rem; margin: 0;">Failed to fetch chunks: ${err.message}</p>
-                        </div>
-                    `;
-                });
-        }
     </script>
-
-    <!-- Modal Xem Chunks & Embeddings -->
-    <div id="chunksModal" style="display: none; position: fixed; z-index: 9999; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0, 0, 0, 0.55); backdrop-filter: blur(4px); align-items: center; justify-content: center;">
-        <div style="background-color: var(--surface); border: 1px solid var(--line); border-radius: 12px; width: 90%; max-width: 750px; max-height: 80vh; display: flex; flex-direction: column; box-shadow: 0 10px 25px rgba(0,0,0,0.25); animation: modalFadeIn 0.2s ease-out; margin: auto;">
-            <!-- Header -->
-            <div style="padding: 16px 20px; border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; align-items: center;">
-                <div>
-                    <h2 id="modalDocTitle" style="font-size: 1.1rem; font-weight: 700; margin: 0; color: var(--ink);">Document Chunks &amp; Embeddings</h2>
-                    <p id="modalDocSub" style="font-size: 0.8rem; color: var(--muted); margin: 2px 0 0 0;"></p>
-                </div>
-                <button id="closeChunksModal" style="background: none; border: none; font-size: 1.6rem; color: var(--muted); cursor: pointer; padding: 0; line-height: 1;">&times;</button>
-            </div>
-            <!-- Body -->
-            <div id="modalChunksBody" style="padding: 20px; overflow-y: auto; flex-grow: 1; display: flex; flex-direction: column; gap: 14px; background: var(--surface);">
-                <!-- Dynamic chunks -->
-            </div>
-        </div>
-    </div>
-
-    <style>
-        #chunksModal {
-            display: none;
-        }
-        @@keyframes modalFadeIn {
-            from { opacity: 0; transform: scale(0.96); }
-            to { opacity: 1; transform: scale(1); }
-        }
-        .chunk-card {
-            border: 1px solid var(--line);
-            border-radius: 8px;
-            background: var(--surface-muted);
-            padding: 12px 16px;
-            transition: all 0.2s;
-        }
-        .chunk-card:hover {
-            border-color: var(--accent);
-            background: var(--surface);
-        }
-        .chunk-meta-info {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            font-size: 0.78rem;
-            color: var(--muted);
-            border-bottom: 1px dashed var(--line);
-            padding-bottom: 6px;
-            margin-bottom: 8px;
-        }
-        .chunk-text-content {
-            font-size: 0.86rem;
-            color: var(--ink);
-            line-height: 1.5;
-            white-space: pre-wrap;
-            margin: 0;
-        }
-        .vector-preview-box {
-            margin-top: 10px;
-            background: rgba(139, 92, 246, 0.05);
-            border: 1px solid rgba(139, 92, 246, 0.15);
-            border-radius: 6px;
-            padding: 6px 10px;
-            font-family: monospace;
-            font-size: 0.72rem;
-            color: #7c3aed;
-            overflow-x: auto;
-            white-space: nowrap;
-        }
-    </style>
 }

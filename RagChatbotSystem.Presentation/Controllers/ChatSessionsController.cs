@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using RagChatbotSystem.Business.DTOs;
 using RagChatbotSystem.Business.Interfaces;
+using RagChatbotSystem.Presentation.Helpers;
 
 namespace RagChatbotSystem.Presentation.Controllers
 {
@@ -142,13 +143,13 @@ namespace RagChatbotSystem.Presentation.Controllers
                         messageId = response.UserMessage.MessageId,
                         content = response.UserMessage.Content,
                         role = response.UserMessage.Role,
-                        createdAt = response.UserMessage.CreatedAt.ToString("HH:mm")
+                        createdAt = VietnamTime.Format(response.UserMessage.CreatedAt, "HH:mm")
                     },
                     assistantMessage = new {
                         messageId = response.AssistantMessage.MessageId,
                         content = response.AssistantMessage.Content,
                         role = response.AssistantMessage.Role,
-                        createdAt = response.AssistantMessage.CreatedAt.ToString("HH:mm")
+                        createdAt = VietnamTime.Format(response.AssistantMessage.CreatedAt, "HH:mm")
                     },
                     citations = response.Citations.Select(c => new {
                         citationId = c.CitationId,
