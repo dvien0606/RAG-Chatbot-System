@@ -1,4 +1,4 @@
-﻿@model RagChatbotSystem.Presentation.Models.WorkspaceViewModel
+@model RagChatbotSystem.Presentation.Models.WorkspaceViewModel
 @{
     var defaultMobileTab = Model.SelectedMessageId.HasValue ? "reference-panel" : "chat-panel";
 }
@@ -6,14 +6,14 @@
 <section class="workspace" data-rag-app data-active-tab="@defaultMobileTab">
     <!-- Mobile Navigation Tabs (Only visible on mobile screens) -->
     <div class="mobile-workspace-tabs" aria-label="Workspace navigation">
-        <button class="mobile-tab-btn @(defaultMobileTab == "chat-panel" ? "active" : "")" data-target="chat-panel">&#128172; Chat</button>
-        <button class="mobile-tab-btn @(defaultMobileTab == "management-panel" ? "active" : "")" data-target="management-panel">&#128218; Knowledge</button>
+        <button class="mobile-tab-btn @(defaultMobileTab == "chat-panel" ? "active" : "")" data-target="chat-panel">💬 Chat</button>
+        <button class="mobile-tab-btn @(defaultMobileTab == "management-panel" ? "active" : "")" data-target="management-panel">📚 Knowledge</button>
         <button class="mobile-tab-btn @(defaultMobileTab == "reference-panel" ? "active" : "")" data-target="reference-panel">
-            &#128269; Sources @(Model.Citations.Count > 0 ? $"({Model.Citations.Count})" : "")
+            🔍 Sources @(Model.Citations.Count > 0 ? $"({Model.Citations.Count})" : "")
         </button>
     </div>
 
-    <!-- Cá»™t 1: Báº£ng Ä‘iá»u khiá»ƒn quáº£n lÃ½ (Management) -->
+    <!-- Cột 1: Bảng điều khiển quản lý (Management) -->
     <aside class="workspace-panel management-panel" aria-label="Subject management">
         <div class="panel-header">
             <div>
@@ -21,11 +21,11 @@
                 <h1>Knowledge workspace</h1>
             </div>
             <a class="icon-button" href="?datasetId=@Model.SelectedDatasetId&sessionId=@Model.SelectedSessionId" title="Refresh workspace" aria-label="Refresh workspace" style="text-decoration: none;">
-                <span aria-hidden="true">&#8635;</span>
+                <span aria-hidden="true">↻</span>
             </a>
         </div>
 
-        <!-- ThÃ´ng bÃ¡o lá»—i hoáº·c thÃ nh cÃ´ng -->
+        <!-- Thông báo lỗi hoặc thành công -->
         @if (!string.IsNullOrEmpty(Model.ErrorMessage))
         {
             <div class="alert alert-danger" style="background: rgba(180, 35, 24, 0.1); border: 1px solid rgba(180, 35, 24, 0.2); padding: 0.75rem; border-radius: 8px; color: var(--danger); margin-bottom: 1rem; font-size: 0.84rem; font-weight: 500;">
@@ -39,10 +39,10 @@
             </div>
         }
 
-        <!-- ThÃ´ng tin ngÆ°á»i dÃ¹ng Ä‘Äƒng nháº­p -->
+        <!-- Thông tin người dùng đăng nhập -->
         <div style="border-bottom: 1px solid var(--line); padding-bottom: 12px; margin-bottom: 16px;">
             <div style="display: flex; align-items: center; gap: 8px;">
-                <span style="font-size: 1.2rem;">&#128100;</span>
+                <span style="font-size: 1.2rem;">👤</span>
                 <div>
                     <div class="fw-bold" style="color: var(--ink); font-size: 0.95rem;">@Model.SelectedUser?.FullName</div>
                     <div class="text-muted small text-uppercase" style="font-size: 0.75rem; font-weight: bold; color: var(--accent-strong);">Role: @User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value</div>
@@ -50,7 +50,7 @@
             </div>
         </div>
 
-        <!-- Quáº£n lÃ½ Datasets -->
+        <!-- Quản lý Datasets -->
         <div class="section-block">
             <div class="section-title">
                 <h2>Subjects</h2>
@@ -87,12 +87,12 @@
                             <span class="dataset-name" style="display: flex; align-items: center; gap: 4px;">
                                 @if (!ds.IsApproved)
                                 {
-                                    <span title="Pending approval" style="color: var(--warning);">&#9203;</span>
+                                    <span title="Pending approval" style="color: var(--warning);">⏳</span>
                                 }
                                 @ds.Name
                                 @if (!ds.IsPublic)
                                 {
-                                    <span title="Private subject" style="font-size: 0.8rem; color: var(--muted);">&#128274;</span>
+                                    <span title="Private subject" style="font-size: 0.8rem; color: var(--muted);">🔒</span>
                                 }
                             </span>
                             <span class="dataset-meta">@ds.DocumentCount document(s)</span>
@@ -112,7 +112,7 @@
             </div>
         </div>
 
-        <!-- Quáº£n lÃ½ TÃ i liá»‡u (Documents) -->
+        <!-- Quản lý Tài liệu (Documents) -->
         <div class="section-block">
             <div class="section-title">
                 <h2>Documents</h2>
@@ -127,12 +127,12 @@
                         <input type="hidden" name="datasetId" value="@Model.SelectedDatasetId" />
                         <div id="upload-dropzone" style="position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; border: 2px dashed var(--line); border-radius: 12px; padding: 22px 16px; background: var(--surface-muted); text-align: center; cursor: pointer; transition: all 0.2s;" onclick="if(!this.dataset.uploading) document.getElementById('file-upload').click();" onmouseover="this.style.borderColor='var(--accent)';" onmouseout="this.style.borderColor='var(--line)';">
                             <div id="upload-idle-state" style="display: flex; flex-direction: column; align-items: center;">
-                                <span style="font-size: 1.8rem; margin-bottom: 6px;">&#128228;</span>
+                                <span style="font-size: 1.8rem; margin-bottom: 6px;">📤</span>
                                 <span style="font-weight: 700; font-size: 0.9rem; color: var(--ink);">Upload documents for RAG</span>
                                 <span style="font-size: 0.75rem; color: var(--muted); margin-top: 4px;">PDF, TXT, MD, or DOCX files supported</span>
                             </div>
                             <div id="upload-loading-state" style="display: none; flex-direction: column; align-items: center; justify-content: center; padding: 10px 0;">
-                                <span style="display: inline-block; font-size: 1.8rem; margin-bottom: 6px; animation: spin 1s linear infinite;">&#9203;</span>
+                                <span style="display: inline-block; font-size: 1.8rem; margin-bottom: 6px; animation: spin 1s linear infinite;">⏳</span>
                                 <span style="font-weight: 700; font-size: 0.9rem; color: var(--accent);">Uploading &amp; Processing...</span>
                                 <span style="font-size: 0.75rem; color: var(--muted); margin-top: 4px;">Please wait while we extract text, chunk and index embeddings.</span>
                             </div>
@@ -181,7 +181,7 @@
             }
         </div>
 
-        <!-- Quáº£n lÃ½ Chat Sessions -->
+        <!-- Quản lý Chat Sessions -->
         <div class="section-block">
             <div class="section-title">
                 <h2>Chat sessions</h2>
@@ -238,7 +238,7 @@
         </div>
     </aside>
 
-    <!-- Cá»™t 2: Giao diá»‡n Há»™i thoáº¡i (Chat Panel) -->
+    <!-- Cột 2: Giao diện Hội thoại (Chat Panel) -->
     <main class="chat-panel" aria-label="Chat interface">
         <div class="chat-header">
             <div>
@@ -294,7 +294,7 @@
                                     <button class="citation-chip view-sources-btn" 
                                        data-message-id="@msg.MessageId"
                                        style="background: none; border: none; font: inherit; text-decoration: none; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 4px;">
-                                        &#128269; View Sources
+                                        🔍 View Sources
                                     </button>
                                 </div>
                             }
@@ -323,7 +323,7 @@
         }
     </main>
 
-    <!-- Cá»™t 3: Hiá»ƒn thá»‹ trÃ­ch dáº«n tÃ i liá»‡u tham chiáº¿u (Reference Panel) -->
+    <!-- Cột 3: Hiển thị trích dẫn tài liệu tham chiếu (Reference Panel) -->
     <aside class="workspace-panel reference-panel" aria-label="Citation references">
         <div class="panel-header">
             <div>
@@ -485,19 +485,19 @@
                 .replace(/'/g, "&#039;");
         }
 
-        // Há»— trá»£ gá»­i tin nháº¯n báº±ng tá»• há»£p phÃ­m Enter (nhÆ°ng cho phÃ©p Shift+Enter Ä‘á»ƒ xuá»‘ng dÃ²ng)
+        // Hỗ trợ gửi tin nhắn bằng tổ hợp phím Enter (nhưng cho phép Shift+Enter để xuống dòng)
         const textarea = document.getElementById("chatQuestionTextarea");
         if (textarea) {
             textarea.addEventListener("keydown", function(e) {
                 if (e.key === "Enter" && !e.shiftKey) {
                     e.preventDefault();
-                    // KÃ­ch hoáº¡t submit form Ä‘Æ°á»£c xá»­ lÃ½ báº±ng AJAX á»Ÿ dÆ°á»›i
+                    // Kích hoạt submit form được xử lý bằng AJAX ở dưới
                     this.form.dispatchEvent(new Event("submit", { cancelable: true }));
                 }
             });
         }
 
-        // Xá»­ lÃ½ gá»­i tin nháº¯n báº±ng AJAX (KhÃ´ng táº£i láº¡i trang)
+        // Xử lý gửi tin nhắn bằng AJAX (Không tải lại trang)
         const composerForm = document.querySelector(".composer");
         if (composerForm) {
             composerForm.addEventListener("submit", function(e) {
@@ -508,22 +508,22 @@
                 const question = questionInput.value.trim();
                 if (!question) return;
                 
-                // Clear vÃ  reset textarea ngay láº­p tá»©c
+                // Clear và reset textarea ngay lập tức
                 questionInput.value = "";
                 questionInput.style.height = "auto";
                 
-                // 1. Hiá»ƒn thá»‹ tin nháº¯n cá»§a User ngay láº­p tá»©c lÃªn mÃ n hÃ¬nh
+                // 1. Hiển thị tin nhắn của User ngay lập tức lên màn hình
                 appendMessage("user", question, formatVietnamTime(new Date()));
                 
-                // 2. ThÃªm bong bÃ³ng chá» tráº£ lá»i (Loading) tá»« Assistant
+                // 2. Thêm bong bóng chờ trả lời (Loading) từ Assistant
                 const loadingBubble = appendLoadingBubble();
                 
-                // Cuá»™n xuá»‘ng cuá»‘i
+                // Cuộn xuống cuối
                 if (chatStream) {
                     chatStream.scrollTop = chatStream.scrollHeight;
                 }
                 
-                // 3. Gá»­i yÃªu cáº§u qua Fetch API tá»›i Backend
+                // 3. Gửi yêu cầu qua Fetch API tới Backend
                 const formData = new FormData(composerForm);
                 formData.set("question", question);
                 
@@ -538,18 +538,18 @@
                     return response.json();
                 })
                 .then(data => {
-                    // XÃ³a bong bÃ³ng loading
+                    // Xóa bong bóng loading
                     if (loadingBubble) loadingBubble.remove();
                     
-                    // ThÃªm cÃ¢u tráº£ lá»i cá»§a AI vÃ o giao diá»‡n
+                    // Thêm câu trả lời của AI vào giao diện
                     appendMessage("assistant", data.assistantMessage.content, data.assistantMessage.createdAt, data.assistantMessage.messageId);
                     
-                    // Hiá»ƒn thá»‹ ngay cÃ¡c nguá»“n trÃ­ch dáº«n tÆ°Æ¡ng á»©ng bÃªn cá»™t pháº£i
+                    // Hiển thị ngay các nguồn trích dẫn tương ứng bên cột phải
                     if (data.citations && data.citations.length > 0) {
                         renderCitationsDirectly(data.citations);
                     }
                     
-                    // Cuá»™n xuá»‘ng cuá»‘i
+                    // Cuộn xuống cuối
                     if (chatStream) {
                         chatStream.scrollTop = chatStream.scrollHeight;
                     }
@@ -558,8 +558,8 @@
                     console.error(err);
                     if (loadingBubble) loadingBubble.remove();
                     
-                    // Hiá»ƒn thá»‹ bong bÃ³ng lá»—i
-                    appendMessage("assistant", `Lỗi: ${err.message}`, formatVietnamTime(new Date()));
+                    // Hiển thị bong bóng lỗi
+                    appendMessage("assistant", `❌ Lỗi: ${err.message}`, formatVietnamTime(new Date()));
                     
                     if (chatStream) {
                         chatStream.scrollTop = chatStream.scrollHeight;
@@ -582,7 +582,7 @@
                         <button class="citation-chip view-sources-btn" 
                                 data-message-id="${messageId}"
                                 style="background: none; border: none; font: inherit; text-decoration: none; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 4px;">
-                            &#128269; View Sources
+                            🔍 View Sources
                         </button>
                     </div>
                 `;
@@ -617,7 +617,7 @@
             loadingDiv.className = "message assistant loading-bubble";
             loadingDiv.innerHTML = `
                 <div class="message-bubble" style="display: flex; align-items: center; gap: 8px;">
-                    <span style="display: inline-block; animation: spin 1s linear infinite;">&#9203;</span>
+                    <span style="display: inline-block; animation: spin 1s linear infinite;">⏳</span>
                     <span style="font-style: italic; color: var(--muted);">Searching knowledge base and thinking...</span>
                 </div>
                 <div class="message-meta">
@@ -628,7 +628,7 @@
             return loadingDiv;
         }
 
-        // Láº¯ng nghe sá»± kiá»‡n click vÃ o nÃºt xem trÃ­ch dáº«n (Event Delegation Ä‘á»ƒ há»— trá»£ cáº£ tin nháº¯n má»›i)
+        // Lắng nghe sự kiện click vào nút xem trích dẫn (Event Delegation để hỗ trợ cả tin nhắn mới)
         document.addEventListener("click", function(e) {
             const btn = e.target.closest(".view-sources-btn");
             if (btn) {
@@ -642,7 +642,7 @@
             const referencePanel = document.querySelector(".reference-panel");
             if (!referencePanel) return;
 
-            // Render giao diá»‡n chá» táº£i trÃ­ch dáº«n bÃªn cá»™t pháº£i
+            // Render giao diện chờ tải trích dẫn bên cột phải
             referencePanel.innerHTML = `
                 <div class="panel-header">
                     <div>
@@ -651,12 +651,12 @@
                     </div>
                 </div>
                 <div style="padding: 24px; text-align: center; color: var(--muted);">
-                    <span style="display: inline-block; font-size: 1.5rem; margin-bottom: 8px; animation: spin 1.2s linear infinite;">&#9203;</span>
+                    <span style="display: inline-block; font-size: 1.5rem; margin-bottom: 8px; animation: spin 1.2s linear infinite;">⏳</span>
                     <p style="font-size: 0.85rem; margin: 0;">Retrieving source documents...</p>
                 </div>
             `;
 
-            // Tá»± Ä‘á»™ng chuyá»ƒn tab trÃªn Mobile sang tab "Sources"
+            // Tự động chuyển tab trên Mobile sang tab "Sources"
             const workspace = document.querySelector(".workspace");
             if (workspace && window.innerWidth <= 820) {
                 workspace.setAttribute("data-active-tab", "reference-panel");
@@ -667,7 +667,7 @@
                 }
             }
 
-            // Gá»i API láº¥y thÃ´ng tin trÃ­ch dáº«n
+            // Gọi API lấy thông tin trích dẫn
             fetch(`/ChatSessions/GetCitations?messageId=${messageId}`)
                 .then(response => {
                     if (!response.ok) throw new Error("Failed to load citations");
@@ -731,7 +731,7 @@
             referencePanel.innerHTML = html;
         }
 
-        // Logic chuyá»ƒn Ä‘á»•i Tab trÃªn thiáº¿t bá»‹ di Ä‘á»™ng
+        // Logic chuyển đổi Tab trên thiết bị di động
         const tabBtns = document.querySelectorAll(".mobile-tab-btn");
         const workspace = document.querySelector(".workspace");
         if (tabBtns && workspace) {
@@ -781,5 +781,97 @@
             uploadForm.requestSubmit();
         }
 
+        // View Chunks & Embeddings Logic
+        document.addEventListener("click", function(e) {
+            const btn = e.target.closest(".view-chunks-btn");
+            if (btn) {
+                e.preventDefault();
+                const docId = btn.getAttribute("data-document-id");
+                const docName = btn.getAttribute("data-document-name");
+                openChunksModal(docId, docName);
+            }
+        });
+
+        const chunksModal = document.getElementById("chunksModal");
+        const closeChunksModalBtn = document.getElementById("closeChunksModal");
+        if (closeChunksModalBtn && chunksModal) {
+            closeChunksModalBtn.onclick = function() {
+                chunksModal.style.display = "none";
+            }
+            window.onclick = function(event) {
+                if (event.target == chunksModal) {
+                    chunksModal.style.display = "none";
+                }
+            }
+        }
+
+        function openChunksModal(docId, docName) {
+            if (!chunksModal) return;
+            
+            document.getElementById("modalDocTitle").innerText = docName;
+            document.getElementById("modalDocSub").innerText = "Loading chunks and embeddings...";
+            
+            const body = document.getElementById("modalChunksBody");
+            body.innerHTML = `
+                <div style="padding: 40px; text-align: center; color: var(--muted);">
+                    <span style="display: inline-block; font-size: 2rem; margin-bottom: 8px; animation: spin 1s linear infinite;">⏳</span>
+                    <p style="font-size: 0.9rem; margin: 0;">Retrieving embeddings and index partitions from PostgreSQL database...</p>
+                </div>
+            `;
+            
+            chunksModal.style.display = "flex";
+            
+            fetch(`/Documents/GetChunks?documentId=${docId}`)
+                .then(response => {
+                    if (!response.ok) throw new Error("Failed to load chunks");
+                    return response.json();
+                })
+                .then(chunks => {
+                    document.getElementById("modalDocSub").innerText = `Found ${chunks.length} chunks generated for this document.`;
+                    
+                    if (chunks.length === 0) {
+                        body.innerHTML = `
+                            <div style="padding: 30px; text-align: center; color: var(--muted);">
+                                <p style="font-size: 0.9rem; margin: 0;">No index chunks found for this document. It might still be processing.</p>
+                            </div>
+                        `;
+                        return;
+                    }
+                    
+                    let html = "";
+                    chunks.forEach(c => {
+                        let vecPreview = "Embedding vector: No vector data found.";
+                        if (c.embedding && c.embedding.length > 0) {
+                            const dims = c.embedding.length;
+                            const previewValues = c.embedding.slice(0, 8).map(v => v.toFixed(5)).join(", ");
+                            vecPreview = `Embedding Vector (pgvector [384] - first 8 dimensions): [ ${previewValues}, ... ]`;
+                        }
+                        
+                        html += `
+                            <div class="chunk-card">
+                                <div class="chunk-meta-info">
+                                    <span><strong>Chunk Index:</strong> #${c.chunkIndex + 1}</span>
+                                    <span><strong>Page:</strong> ${c.pageNumber > 0 ? c.pageNumber : 1}</span>
+                                </div>
+                                <p class="chunk-text-content">${escapeHtml(c.content)}</p>
+                                <div class="vector-preview-box" title="Full size is 384 dimensions representation vector">
+                                    ✨ ${vecPreview}
+                                </div>
+                            </div>
+                        `;
+                    });
+                    
+                    body.innerHTML = html;
+                })
+                .catch(err => {
+                    console.error(err);
+                    document.getElementById("modalDocSub").innerText = "Error loading index data.";
+                    body.innerHTML = `
+                        <div style="padding: 30px; text-align: center; color: var(--danger);">
+                            <p style="font-size: 0.9rem; margin: 0;">Failed to fetch chunks: ${err.message}</p>
+                        </div>
+                    `;
+                });
+        }
     </script>
 }
