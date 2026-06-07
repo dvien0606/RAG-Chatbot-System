@@ -8,9 +8,9 @@
 }
 
 <div class="container py-4">
-    <div class="d-flex justify-content-between align-items-center mb-4">
+    <div class="page-header d-flex justify-content-between align-items-center mb-4">
         <div>
-            <h2 class="fw-bold" style="color: var(--ink); margin: 0; background: linear-gradient(135deg, #fff 30%, var(--accent-strong) 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Admin Dashboard</h2>
+            <h2 class="page-title">Admin Dashboard</h2>
             <p class="text-muted m-0 mt-1">Manage system users, approve subjects, and control permissions.</p>
         </div>
     </div>
@@ -223,13 +223,13 @@
                                         }
                                         else
                                         {
-                                            <span class="status-pill text-muted" style="background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.1);">Private</span>
+                                            <span class="status-pill status-neutral">Private</span>
                                         }
                                     </td>
                                     <td class="py-3">
                                         @if (ds.IsApproved)
                                         {
-                                            <span class="status-pill" style="background: rgba(16, 185, 129, 0.1); color: #10b981; border-color: rgba(16, 185, 129, 0.2);">Approved</span>
+                                            <span class="status-pill status-success">Approved</span>
                                         }
                                         else
                                         {
@@ -238,7 +238,7 @@
                                     </td>
                                     <td class="py-3 text-end">
                                         <div class="d-flex justify-content-end gap-2">
-                                            <a asp-action="Permissions" asp-route-id="@ds.DatasetId" class="btn btn-outline-secondary btn-sm" style="border-radius: 6px; border-color: rgba(255,255,255,0.15); color: var(--ink); font-weight: 600;">
+                                            <a asp-action="Permissions" asp-route-id="@ds.DatasetId" class="btn btn-outline-secondary btn-sm">
                                                 Manage Permissions
                                             </a>
                                             <form asp-action="ApproveDataset" method="post" class="m-0">
@@ -254,7 +254,7 @@
                                                 else
                                                 {
                                                     <input type="hidden" name="approve" value="true" />
-                                                    <button type="submit" class="btn btn-success btn-sm text-white" style="border-radius: 6px; font-weight: 600; background: #10b981; border: none; box-shadow: 0 0 10px rgba(16,185,129,0.3);">
+                                                    <button type="submit" class="btn btn-success btn-sm text-white">
                                                         Approve
                                                     </button>
                                                 }
@@ -298,11 +298,11 @@
                                 <td class="py-3">
                                     @if (user.Role == "Admin")
                                     {
-                                        <span class="status-pill" style="background: rgba(239, 68, 68, 0.1); color: var(--danger); border-color: rgba(239, 68, 68, 0.2);">Admin</span>
+                                        <span class="status-pill status-danger">Admin</span>
                                     }
                                     else if (user.Role == "Teacher")
                                     {
-                                        <span class="status-pill" style="background: rgba(217, 70, 239, 0.1); color: var(--accent); border-color: rgba(217, 70, 239, 0.25);">Teacher</span>
+                                        <span class="status-pill status-info">Teacher</span>
                                     }
                                     else
                                     {
@@ -313,7 +313,7 @@
                                 <td class="py-3">
                                     @if (user.IsApproved)
                                     {
-                                        <span class="status-pill" style="background: rgba(16, 185, 129, 0.1); color: #10b981; border-color: rgba(16, 185, 129, 0.2);">Active</span>
+                                        <span class="status-pill status-success">Active</span>
                                     }
                                     else
                                     {
@@ -336,7 +336,7 @@
                                             else
                                             {
                                                 <input type="hidden" name="approve" value="true" />
-                                                <button type="submit" class="btn btn-success btn-sm text-white" style="border-radius: 6px; font-weight: 600; background: #10b981; border: none; box-shadow: 0 0 10px rgba(16,185,129,0.3);">
+                                                <button type="submit" class="btn btn-success btn-sm text-white">
                                                     Approve
                                                 </button>
                                             }
@@ -352,21 +352,15 @@
     </div>
 </div>
 
-<div id="adminProcessingOverlay" style="display:none; position: fixed; inset: 0; z-index: 9999; background: rgba(15, 23, 42, 0.72); backdrop-filter: blur(6px); align-items: center; justify-content: center;">
-    <div style="background: #fff; border: 1px solid rgba(148, 163, 184, 0.35); border-radius: 16px; padding: 28px; width: min(440px, calc(100vw - 32px)); text-align: center; box-shadow: 0 24px 60px rgba(15, 23, 42, 0.24);">
-        <div style="width: 48px; height: 48px; margin: 0 auto 16px; border: 4px solid rgba(37, 99, 235, 0.16); border-top-color: #2563eb; border-radius: 50%; animation: adminSpin 0.85s linear infinite;"></div>
-        <h3 id="adminProcessingTitle" style="margin: 0 0 8px; color: #0f172a; font-size: 1.2rem;">Processing...</h3>
-        <p id="adminProcessingMessage" style="margin: 0; color: #475569; line-height: 1.5;">Please keep this page open.</p>
+<div id="adminProcessingOverlay" class="processing-overlay">
+    <div class="processing-dialog">
+        <div class="processing-spinner"></div>
+        <h3 id="adminProcessingTitle">Processing...</h3>
+        <p id="adminProcessingMessage">Please keep this page open.</p>
     </div>
 </div>
 
 @section Scripts {
-    <style>
-        @@keyframes adminSpin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-    </style>
     <script>
         const processingOverlay = document.getElementById("adminProcessingOverlay");
         const processingTitle = document.getElementById("adminProcessingTitle");

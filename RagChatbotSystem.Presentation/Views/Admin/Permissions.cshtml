@@ -6,12 +6,12 @@
 }
 
 <div class="container py-4">
-    <div class="d-flex justify-content-between align-items-center mb-4">
+    <div class="page-header d-flex justify-content-between align-items-center mb-4">
         <div>
-            <h2 class="fw-bold" style="color: var(--ink); margin: 0; background: linear-gradient(135deg, #fff 30%, var(--accent-strong) 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Manage Subject Permissions</h2>
-            <p class="text-muted m-0 mt-1">Grant or revoke access to the subject: <strong style="color: var(--accent-strong);">@dataset?.Name</strong></p>
+            <h2 class="page-title">Manage Subject Permissions</h2>
+            <p class="text-muted m-0 mt-1">Grant or revoke access to the subject: <strong>@dataset?.Name</strong></p>
         </div>
-        <a asp-action="Index" class="btn btn-outline-secondary fw-bold" style="border-radius: 8px; border-color: rgba(255,255,255,0.15); color: var(--ink); font-size: 0.85rem; padding: 10px 18px; text-transform: uppercase;">
+        <a asp-action="Index" class="btn btn-outline-secondary">
             Back to Dashboard
         </a>
     </div>
@@ -27,7 +27,7 @@
                 <div class="card-body px-4 pb-4">
                     @if (dataset?.IsPublic == true)
                     {
-                        <div class="alert border-0 mb-3" style="background-color: rgba(0, 242, 254, 0.1); color: var(--accent-strong); border-radius: 8px; border: 1px solid rgba(0, 242, 254, 0.2) !important;">
+                        <div class="alert alert-warning mb-3">
                             <strong>Note:</strong> This subject is public. All users can query this subject without explicit permissions.
                         </div>
                     }
@@ -37,8 +37,8 @@
                         <input type="hidden" name="datasetId" value="@dataset?.DatasetId" />
 
                         <div class="mb-4">
-                            <label for="userId" class="form-label small fw-bold mb-2" style="color: var(--muted); letter-spacing: 0.05em;">SELECT USER</label>
-                            <select id="userId" name="userId" required @(dataset?.IsPublic == true || !availableUsers.Any() ? "disabled" : "") style="min-height: 48px; width: 100%; border: 1px solid var(--line); border-radius: 8px; background: rgba(10, 15, 30, 0.7); color: var(--ink); padding: 0 12px;">
+                            <label for="userId" class="form-label mb-2">Select user</label>
+                            <select id="userId" name="userId" required @(dataset?.IsPublic == true || !availableUsers.Any() ? "disabled" : "")>
                                 @if (!availableUsers.Any())
                                 {
                                     <option value="">No other users available</option>
@@ -54,7 +54,7 @@
                             </select>
                         </div>
 
-                        <button type="submit" class="btn text-white w-100 fw-bold" style="background: linear-gradient(135deg, var(--accent) 0%, #a21caf 100%); border: none; box-shadow: 0 4px 15px rgba(217, 70, 239, 0.3); border-radius: 8px; min-height: 48px; text-transform: uppercase; font-size: 0.85rem;" @(dataset?.IsPublic == true || !availableUsers.Any() ? "disabled" : "")>
+                        <button type="submit" class="btn btn-primary w-100" @(dataset?.IsPublic == true || !availableUsers.Any() ? "disabled" : "")>
                             Grant Permission
                         </button>
                     </form>

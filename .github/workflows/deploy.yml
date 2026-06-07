@@ -3,7 +3,7 @@ name: Deploy RAG Chatbot System
 on:
   push:
     branches:
-      - dev
+      - main
 
 jobs:
   deploy:

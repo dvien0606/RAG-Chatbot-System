@@ -21,52 +21,11 @@ Hệ thống Chatbot hỏi đáp thông minh dựa trên tri thức tùy chỉnh
 Dự án được xây dựng theo mô hình kiến trúc phân tầng kết hợp dịch vụ ngoài.
 
 ### Sơ đồ kiến trúc (Hình ảnh)
-![Kiến trúc hệ thống](docs/architecture.png)
+![Kiến trúc hệ thống](docs/system_architecture_prn.jpg)
 
 *(Bạn có thể lưu ảnh kiến trúc của mình vào thư mục `docs/architecture.png` để hiển thị trực tiếp tại đây)*
 
-### Sơ đồ luồng hoạt động các lớp
 
-```mermaid
-flowchart TD
-    User["User / Browser"]
-    
-    subgraph Presentation["Presentation Layer"]
-        Controllers["Controllers"]
-        Views["Views (.cshtml)"]
-    end
-    
-    subgraph Business["Business Layer"]
-        Services["Services"]
-        DTOs["DTOs"]
-    end
-    
-    subgraph DataAccess["Data Access Layer"]
-        Repo["Repository / UnitOfWork"]
-        Context["AppDbContext"]
-        Models["Models / Entities"]
-    end
-    
-    subgraph Database["Database"]
-        DB["PostgreSQL + pgvector"]
-    end
-    
-    subgraph External["External Services"]
-        PyAPI["Python RAG API <br> (FAISS + BM25 + Reranker)"]
-        LLM["LLM Provider"]
-        Storage["File Storage <br> (wwwroot/uploads / Google Drive)"]
-    end
-
-    %% Connections
-    User <-->|"HTML Response / Request"| Presentation
-    Presentation <-->|"Return DTO / result <br> Call business logic"| Business
-    Business <-->|"Return entities / data <br> Read / write data"| DataAccess
-    DataAccess <-->|"Return records <br> Query / save"| Database
-    
-    Business <-->|"Call / Retrieve"| External
-```
-
----
 
 ## 🌟 Các tính năng nổi bật
 
@@ -164,7 +123,7 @@ Cách này sẽ tự động build các image và kết nối các container bao
 #### Bước 1: Chạy PostgreSQL với pgvector
 Sử dụng Docker để khởi chạy nhanh cơ sở dữ liệu có hỗ trợ pgvector:
 ```bash
-docker run --name rag-postgres-db -e POSTGRES_PASSWORD=your_db_password -e POSTGRES_DB=RagChatbotSystemDb -p 5432:5432 -d pgvector/pgvector:pg16
+docker run --name rag-postgres-db -e POSTGRES_PASSWORD=your_db_password -e POSTGRES_DB=RagChatbotSystemDb -p 5432:5432 -d pgvector/pgvector:pg18
 ```
 
 #### Bước 2: Khởi tạo dữ liệu (Database Migrations)
@@ -195,38 +154,6 @@ dotnet ef database update --project RagChatbotSystem.DataAccess --startup-projec
 
 ---
 
-## 🔄 Luồng nghiệp vụ chính & API Contract
-
-Dưới đây là mô tả luồng gọi API thực tế giữa Client và Hệ thống:
-
-### 1. Thiết lập không gian làm việc (Knowledge Base Setup)
--   **Tạo User**:
-    *   `POST /api/users`
-    *   Body: `{"fullName": "Nguyen Van A", "email": "a@example.com", "role": "User"}`
--   **Tạo Dataset**:
-    *   `POST /api/datasets`
-    *   Body: `{"name": "Tri Thức Dự Án A", "description": "Tài liệu đào tạo", "createdBy": "USER_ID"}`
-
-### 2. Tải lên và xử lý tài liệu (Ingestion Flow)
--   **Bước A: Tải file lên hệ thống** (Trạng thái file sẽ là `Uploaded`):
-    *   `POST /api/datasets/{datasetId}/documents`
-    *   Form-data:
-        -   `uploadedBy`: `USER_ID`
-        -   `file`: Chọn file cần tải lên (PDF, DOCX, TXT)
--   **Bước B: Tiến hành phân mảnh và lập chỉ mục**:
-    *   `POST /api/documents/{documentId}/process`
-    *   *Mô tả*: C# sẽ trích xuất văn bản -> Gửi các chunk sang Python API `/index` để sinh vector -> Lưu dữ liệu chunk và vector vào PostgreSQL -> Chuyển trạng thái sang `Completed`.
-
-### 3. Hỏi đáp cùng Chatbot (Query & Citation Flow)
--   **Tạo phiên Chat mới**:
-    *   `POST /api/chat-sessions`
-    *   Body: `{"userId": "USER_ID", "datasetId": "DATASET_ID", "title": "Hỏi đáp dự án"}`
--   **Gửi câu hỏi và nhận câu trả lời kèm dẫn chứng**:
-    *   `POST /api/chat-sessions/{sessionId}/messages`
-    *   Body: `{"question": "Quy trình xin nghỉ phép như thế nào?"}`
-    *   **Response**: Trả về tin nhắn của người dùng, câu trả lời từ trợ lý AI và mảng `citations` (dẫn nguồn chi tiết bao gồm nội dung đoạn văn gốc, tên file và số trang cụ thể).
-
----
 
 ## 🧪 Chạy Automated Tests
 
@@ -243,4 +170,3 @@ dotnet test RagChatbotSystem.sln
 > - Python RAG API sử dụng bộ nhớ cache lưu tại `cache/faiss_index` và `cache/bm25.pkl`. Nếu muốn xóa chỉ mục để nạp lại từ đầu, hãy xóa thư mục `cache` này trước khi khởi chạy lại Python API.
 > - Hãy chắc chắn rằng bạn đã kích hoạt extension `vector` trong PostgreSQL nếu cài đặt thủ công mà không dùng docker image được dựng sẵn.
 
-++
