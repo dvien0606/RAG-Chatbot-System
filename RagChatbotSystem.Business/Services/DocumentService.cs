@@ -32,9 +32,15 @@ namespace RagChatbotSystem.Business.Services
         private readonly IGenericRepository<VectorRecord> _vectorRecordRepository;
         private readonly IRagApiClient _ragApiClient;
         private readonly IFileStorageService _fileStorageService;
+        private readonly IRealtimeService _realtimeService;
         private readonly ILogger<DocumentService> _logger;
 
-        public DocumentService(IUnitOfWork unitOfWork, IRagApiClient ragApiClient, IFileStorageService fileStorageService, ILogger<DocumentService> logger)
+        public DocumentService(
+            IUnitOfWork unitOfWork,
+            IRagApiClient ragApiClient,
+            IFileStorageService fileStorageService,
+            IRealtimeService realtimeService,
+            ILogger<DocumentService> logger)
         {
             _unitOfWork = unitOfWork;
             _documentRepository = _unitOfWork.Repository<Document>();
@@ -44,6 +50,7 @@ namespace RagChatbotSystem.Business.Services
             _vectorRecordRepository = _unitOfWork.Repository<VectorRecord>();
             _ragApiClient = ragApiClient;
             _fileStorageService = fileStorageService;
+            _realtimeService = realtimeService;
             _logger = logger;
         }
 
@@ -151,11 +158,15 @@ namespace RagChatbotSystem.Business.Services
             document.UpdatedAt = DateTime.UtcNow;
             _documentRepository.Update(document);
             await _unitOfWork.SaveChangesAsync(cancellationToken);
+            await _realtimeService.SendDocumentProgressAsync(document.DatasetId, document.DocumentId, "Đang xử lý", 10, cancellationToken);
 
             try
             {
+                await _realtimeService.SendDocumentProgressAsync(document.DatasetId, document.DocumentId, "Đang trích xuất chữ", 30, cancellationToken);
                 await using var stream = await _fileStorageService.OpenReadAsync(document.FilePath, cancellationToken);
                 var segments = await ExtractTextSegmentsAsync(stream, document.FileType, cancellationToken);
+
+                await _realtimeService.SendDocumentProgressAsync(document.DatasetId, document.DocumentId, "Đang phân tích đoạn", 50, cancellationToken);
                 var chunks = SplitTextSegments(segments, DefaultChunkSize, DefaultChunkOverlap);
 
                 if (chunks.Count == 0)
@@ -163,6 +174,7 @@ namespace RagChatbotSystem.Business.Services
                     throw new InvalidOperationException("No extractable text found.");
                 }
 
+                await _realtimeService.SendDocumentProgressAsync(document.DatasetId, document.DocumentId, "Đang nhúng vector & index", 75, cancellationToken);
                 await IndexExistingDocumentAsync(document, chunks, cancellationToken);
 
                 document.Status = "Completed";
@@ -170,9 +182,12 @@ namespace RagChatbotSystem.Business.Services
                 _documentRepository.Update(document);
                 await _unitOfWork.SaveChangesAsync(cancellationToken);
 
+                await _realtimeService.SendDocumentProgressAsync(document.DatasetId, document.DocumentId, "Hoàn thành", 100, cancellationToken);
+                await _realtimeService.TriggerUiUpdateAsync("Document", document.DocumentId, cancellationToken);
+
                 return ToDto(document);
             }
-            catch
+            catch (Exception ex)
             {
                 _unitOfWork.ClearTracker();
 
@@ -183,6 +198,7 @@ namespace RagChatbotSystem.Business.Services
                     failedDocument.UpdatedAt = DateTime.UtcNow;
                     _documentRepository.Update(failedDocument);
                     await _unitOfWork.SaveChangesAsync(cancellationToken);
+                    await _realtimeService.SendDocumentProgressAsync(failedDocument.DatasetId, failedDocument.DocumentId, $"Thất bại: {ex.Message}", 0, cancellationToken);
                 }
 
                 throw;
@@ -216,20 +232,6 @@ namespace RagChatbotSystem.Business.Services
                 };
 
                 await _documentRepository.AddAsync(document);
-
-                var chunks = SplitTextSegments(
-                    new List<ExtractedTextSegment> { new(rawText, 1) },
-                    DefaultChunkSize,
-                    DefaultChunkOverlap);
-
-                if (chunks.Count > 0)
-                {
-                    await AddIndexedChunksAsync(document, chunks, rebuildCache: false, cancellationToken: default);
-                }
-
-                document.Status = "Completed";
-                document.UpdatedAt = DateTime.UtcNow;
-                _documentRepository.Update(document);
                 await _unitOfWork.SaveChangesAsync();
                 await transaction.CommitAsync();
 
@@ -257,6 +259,8 @@ namespace RagChatbotSystem.Business.Services
             _documentRepository.Delete(document);
             await _unitOfWork.SaveChangesAsync();
             await _fileStorageService.DeleteFileIfExistsAsync(document.FilePath);
+
+            await _realtimeService.TriggerUiUpdateAsync("Document", documentId);
 
             return true;
         }

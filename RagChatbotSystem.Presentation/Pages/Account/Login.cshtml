@@ -1,0 +1,51 @@
+@page
+@model RagChatbotSystem.Presentation.Pages.Account.LoginModel
+@{
+    ViewData["Title"] = "Đăng nhập";
+}
+
+<div class="auth-container d-flex align-items-center justify-content-center" style="min-height: calc(100vh - 200px); padding-block: 40px;">
+    <div class="auth-card" style="animation: fadeIn 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;">
+        <div class="auth-title text-center mb-4">
+            <span class="brand-mark mb-3" style="width: 48px; height: 48px; font-size: 1.25rem;">R</span>
+            <h1 class="h3 fw-bold text-dark">Đăng nhập RAG Chatbot</h1>
+            <p class="text-muted" style="font-size: 0.9rem;">Truy cập không gian làm việc của bạn và bắt đầu trò chuyện với tài liệu.</p>
+        </div>
+
+        @if (!string.IsNullOrEmpty(Model.ErrorMessage))
+        {
+            <div class="alert alert-danger mb-4 shadow-sm" role="alert" style="border-radius: var(--radius); font-size: 0.88rem;">
+                <i class="bi bi-exclamation-triangle-fill me-2"></i> @Model.ErrorMessage
+            </div>
+        }
+
+        <form method="post" class="auth-form d-flex flex-column gap-3">
+            @Html.AntiForgeryToken()
+            <input type="hidden" asp-for="ReturnUrl" />
+
+            <div>
+                <label asp-for="Email" class="form-label mb-1 fw-semibold text-secondary" style="font-size: 0.85rem;">Tên đăng nhập hoặc Email</label>
+                <input type="text" asp-for="Email" placeholder="Nhập tên đăng nhập hoặc email" required 
+                       class="form-control px-3 py-2" style="border-radius: var(--radius); font-size: 0.9rem;" />
+            </div>
+
+            <div>
+                <label asp-for="Password" class="form-label mb-1 fw-semibold text-secondary" style="font-size: 0.85rem;">Mật khẩu</label>
+                <input type="password" asp-for="Password" placeholder="Nhập mật khẩu của bạn" required 
+                       class="form-control px-3 py-2" style="border-radius: var(--radius); font-size: 0.9rem;" />
+            </div>
+
+            <button type="submit" class="btn btn-primary w-100 py-2 mt-2 fw-bold" style="border-radius: var(--radius); transition: all 0.2s;">
+                Đăng nhập
+            </button>
+
+            <div class="text-center mt-3" style="border-top: 1px solid var(--line); padding-top: 15px;">
+                <span class="text-muted small">Tài khoản được cung cấp bởi Quản trị viên qua Email.</span>
+            </div>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

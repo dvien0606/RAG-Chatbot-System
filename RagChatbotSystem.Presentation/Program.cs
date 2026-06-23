@@ -5,6 +5,7 @@ using Pgvector;
 using RagChatbotSystem.Business.Interfaces;
 using RagChatbotSystem.Business.Services;
 using RagChatbotSystem.Presentation.Services;
+using RagChatbotSystem.Presentation.Hubs;
 using RagChatbotSystem.DataAccess.Repositories;
 
 namespace RagChatbotSystem.Presentation
@@ -16,6 +17,8 @@ namespace RagChatbotSystem.Presentation
             var builder = WebApplication.CreateBuilder(args);
 
             builder.Services.AddControllersWithViews();
+            builder.Services.AddRazorPages();
+            builder.Services.AddSignalR();
 
             // Đăng ký Cookie Authentication
             builder.Services.AddAuthentication(Microsoft.AspNetCore.Authentication.Cookies.CookieAuthenticationDefaults.AuthenticationScheme)
@@ -25,7 +28,6 @@ namespace RagChatbotSystem.Presentation
                     options.AccessDeniedPath = "/Account/AccessDenied";
                     options.ExpireTimeSpan = TimeSpan.FromDays(7);
                 });
-
 
             // Đăng ký Swagger Services
             builder.Services.AddEndpointsApiExplorer();
@@ -79,6 +81,7 @@ namespace RagChatbotSystem.Presentation
             builder.Services.AddScoped<IDocumentService, DocumentService>();
             builder.Services.AddScoped<IChatService, ChatService>();
             builder.Services.AddScoped<IChatSessionService, ChatSessionService>();
+            builder.Services.AddScoped<IRealtimeService, RealtimeService>();
 
             var app = builder.Build();
 
@@ -191,6 +194,11 @@ namespace RagChatbotSystem.Presentation
             app.UseAuthentication();
 
             app.UseAuthorization();
+
+            app.MapRazorPages();
+            app.MapHub<ChatHub>("/hubs/chat");
+            app.MapHub<DocumentHub>("/hubs/document");
+            app.MapHub<NotificationHub>("/hubs/notification");
 
             app.MapControllers();
 

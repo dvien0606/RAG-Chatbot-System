@@ -1,0 +1,983 @@
+@page
+@model RagChatbotSystem.Presentation.Pages.IndexModel
+@{
+    var defaultMobileTab = Model.SelectedMessageId.HasValue ? "reference-panel" : "chat-panel";
+    var showReferences = Model.SelectedMessageId.HasValue && Model.Citations.Count > 0;
+}
+
+<section class="workspace @(showReferences ? "citations-active" : "")" data-rag-app data-active-tab="@defaultMobileTab">
+    <!-- Mobile Navigation Tabs -->
+    <div class="mobile-workspace-tabs" aria-label="Workspace navigation">
+        <button class="mobile-tab-btn @(defaultMobileTab == "chat-panel" ? "active" : "")" data-target="chat-panel">Trò chuyện</button>
+        <button class="mobile-tab-btn @(defaultMobileTab == "management-panel" ? "active" : "")" data-target="management-panel">Môn học & Tài liệu</button>
+        <button class="mobile-tab-btn @(defaultMobileTab == "reference-panel" ? "active" : "")" data-target="reference-panel">
+            Nguồn trích dẫn @(Model.Citations.Count > 0 ? $"({Model.Citations.Count})" : "")
+        </button>
+    </div>
+
+    <!-- Cột 1: Bảng điều khiển quản lý (Management) -->
+    <aside class="workspace-panel management-panel shadow-sm" aria-label="Subject management">
+        <div class="panel-header">
+            <div>
+                <p class="eyebrow text-uppercase">Học tập & Tài liệu</p>
+                <h1>Không gian tri thức</h1>
+            </div>
+            <a class="icon-button btn btn-light btn-sm rounded" href="?datasetId=@Model.SelectedDatasetId&sessionId=@Model.SelectedSessionId" title="Làm mới workspace">
+                Làm mới
+            </a>
+        </div>
+
+        @if (!string.IsNullOrEmpty(Model.ErrorMessage))
+        {
+            <div class="alert alert-danger border-0 mb-3" style="border-radius: var(--radius); font-size: 0.85rem;">
+                <i class="bi bi-exclamation-octagon-fill me-2"></i> @Model.ErrorMessage
+            </div>
+        }
+        @if (!string.IsNullOrEmpty(Model.SuccessMessage))
+        {
+            <div class="alert alert-success border-0 mb-3" style="border-radius: var(--radius); font-size: 0.85rem;">
+                <i class="bi bi-check-circle-fill me-2"></i> @Model.SuccessMessage
+            </div>
+        }
+
+        @if (Model.SelectedDatasetId.HasValue)
+        {
+            <div class="active-subject-card p-3 mb-3 border bg-light" style="border-radius: var(--radius);">
+                <div class="active-subject-content d-flex justify-content-between align-items-center">
+                    <div class="active-subject-main">
+                        <p class="eyebrow mb-1">MÔN HỌC HIỆN TẠI</p>
+                        <h4 class="fw-bold text-dark m-0" title="@Model.SelectedDataset?.Name">@Model.SelectedDataset?.Name</h4>
+                    </div>
+                    <a href="?" class="btn btn-outline-secondary btn-sm px-3" style="border-radius: var(--radius-sm);">Thay đổi</a>
+                </div>
+            </div>
+
+            <div class="sidebar-tabs mb-3 d-flex gap-2 border-bottom pb-2">
+                <button type="button" class="sidebar-tab-btn active btn btn-sm btn-light fw-bold" data-tab="sessions-tab" style="flex: 1;">Phòng Chat</button>
+                <button type="button" class="sidebar-tab-btn btn btn-sm btn-light fw-bold" data-tab="documents-tab" style="flex: 1;">Tài liệu môn học</button>
+            </div>
+
+            <!-- Tab Content 1: Chat Sessions -->
+            <div id="sessions-tab" class="sidebar-tab-content">
+                <div class="section-title d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="fw-bold m-0 text-dark">Lịch sử trò chuyện</h5>
+                    <span class="badge bg-secondary">@Model.Sessions.Count</span>
+                </div>
+                
+                <form method="post" asp-page-handler="CreateSession" class="create-form mb-3">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="datasetId" value="@Model.SelectedDatasetId" />
+                    <div class="input-row d-flex gap-2">
+                        <input name="title" type="text" placeholder="Tiêu đề cuộc trò chuyện mới..." required class="form-control" style="font-size: 0.88rem; border-radius: var(--radius-sm);" />
+                        <button type="submit" class="btn btn-primary fw-bold text-nowrap" style="border-radius: var(--radius-sm);">Tạo mới</button>
+                    </div>
+                </form>
+
+                <div class="session-list d-flex flex-column gap-2" aria-live="polite">
+                    @if (Model.Sessions.Count == 0)
+                    {
+                        <p class="helper-text text-muted small text-center my-4">Chưa có cuộc hội thoại nào. Tạo mới để bắt đầu hỏi đáp!</p>
+                    }
+                    @foreach (var ss in Model.Sessions)
+                    {
+                        <a class="session-item p-3 border d-block text-decoration-none rounded @(Model.SelectedSessionId == ss.SessionId ? "bg-primary text-white border-primary" : "bg-white text-dark")" 
+                           href="?datasetId=@Model.SelectedDatasetId&sessionId=@ss.SessionId" style="transition: all 0.2s;">
+                            <div class="session-name fw-bold" style="font-size: 0.9rem;">@ss.Title</div>
+                            <div class="session-meta small opacity-75 mt-1" style="font-size: 0.75rem;">Cập nhật: @VietnamTime.Format(ss.UpdatedAt, "HH:mm dd/MM")</div>
+                        </a>
+                    }
+                </div>
+            </div>
+
+            <!-- Tab Content 2: Documents -->
+            <div id="documents-tab" class="sidebar-tab-content" style="display: none;">
+                <div class="section-title d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="fw-bold m-0 text-dark">Tài liệu học tập</h5>
+                    <span class="badge bg-secondary">@Model.Documents.Count</span>
+                </div>
+
+                @if (User.IsInRole("Admin") || User.IsInRole("Teacher"))
+                {
+                    <form id="upload-doc-form" method="post" asp-page-handler="Upload" enctype="multipart/form-data" class="upload-form mb-3">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="datasetId" value="@Model.SelectedDatasetId" />
+                        <div id="upload-dropzone" class="upload-dropzone p-4 text-center border border-dashed rounded bg-light" 
+                             style="cursor: pointer; transition: all 0.2s;"
+                             onclick="if(!this.dataset.uploading) document.getElementById('file-upload').click();">
+                            <div id="upload-idle-state" class="upload-state">
+                                <i class="bi bi-cloud-arrow-up-fill text-primary" style="font-size: 2rem;"></i>
+                                <div class="upload-title fw-bold mt-2">Kéo thả hoặc tải tài liệu</div>
+                                <span class="upload-subtitle text-muted small">Hỗ trợ PDF, TXT, MD, DOCX (Tối đa 50MB)</span>
+                            </div>
+                            <div id="upload-loading-state" class="upload-state upload-state-loading" style="display: none; flex-direction: column; align-items: center;">
+                                <div class="spinner-border text-primary mb-2" role="status"></div>
+                                <span class="upload-title fw-bold">Đang tải lên...</span>
+                                <span class="upload-subtitle text-muted small">Trích xuất nội dung và vector hóa.</span>
+                            </div>
+                            <input id="file-upload" class="file-input-hidden" name="file" type="file" required style="display: none;" onchange="triggerUpload();" />
+                        </div>
+                    </form>
+                }
+
+                <div class="document-list d-flex flex-column gap-2" aria-live="polite" id="documentList">
+                    @if (Model.Documents.Count == 0)
+                    {
+                        <p class="helper-text text-muted small text-center my-4">Chưa có tài liệu nào trong môn học này.</p>
+                    }
+                    @foreach (var doc in Model.Documents)
+                    {
+                        <div class="document-item p-3 border rounded bg-white" data-document-id="@doc.DocumentId">
+                            <div class="document-card-header">
+                                <div class="document-card-main">
+                                    <strong class="document-name text-dark d-block text-truncate" title="@doc.FileName">@doc.FileName</strong>
+                                    <span class="document-meta text-muted small" style="font-size: 0.75rem;">@doc.FileType.ToUpper() &bull; @Math.Ceiling(doc.FileSize / 1024.0) KB</span>
+                                </div>
+                            </div>
+                            
+                            <!-- Real-time processing progress bar -->
+                            <div class="progress mt-2 mb-1" style="height: 6px; border-radius: 99px;">
+                                <div class="progress-bar progress-fill @(doc.Status.Equals("Completed", StringComparison.OrdinalIgnoreCase) ? "bg-success" : "bg-primary progress-bar-striped progress-bar-animated")" 
+                                     role="progressbar" 
+                                     style="width: @(doc.Status.Equals("Completed", StringComparison.OrdinalIgnoreCase) ? "100%" : "30%")" 
+                                     aria-valuenow="@(doc.Status.Equals("Completed", StringComparison.OrdinalIgnoreCase) ? "100" : "30")" 
+                                     aria-valuemin="0" 
+                                     aria-valuemax="100">
+                                </div>
+                            </div>
+
+                            <div class="document-actions-row d-flex justify-content-between align-items-center mt-2" style="font-size: 0.8rem;">
+                                <span class="status-pill badge @(doc.Status.Equals("Completed", StringComparison.OrdinalIgnoreCase) ? "bg-success-soft text-success" : "bg-warning-soft text-warning")">@doc.Status</span>
+                                <div class="d-flex gap-2">
+                                    <a class="btn btn-link p-0 text-decoration-none fw-bold" asp-page="/Documents/Preview" asp-route-documentId="@doc.DocumentId">Xem</a>
+                                    
+                                    @if (User.IsInRole("Admin") || User.IsInRole("Teacher"))
+                                    {
+                                        <button class="btn btn-link p-0 text-decoration-none text-info fw-bold view-chunks-btn" data-document-id="@doc.DocumentId" data-document-name="@doc.FileName">Vector</button>
+                                        
+                                        <form method="post" asp-page-handler="DeleteDocument" class="inline-form m-0" onsubmit="return confirm('Bạn có chắc chắn muốn xóa tài liệu này?');">
+                                            @Html.AntiForgeryToken()
+                                            <input type="hidden" name="datasetId" value="@Model.SelectedDatasetId" />
+                                            <input type="hidden" name="documentId" value="@doc.DocumentId" />
+                                            <button class="btn btn-link p-0 text-decoration-none text-danger fw-bold" type="submit">Xóa</button>
+                                        </form>
+                                    }
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+        else
+        {
+            <!-- Danh sách Subjects -->
+            <div class="section-block section-block-flat">
+                <div class="section-title d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="fw-bold m-0 text-dark">Danh sách môn học</h5>
+                    <span class="badge bg-secondary">@Model.Datasets.Count</span>
+                </div>
+
+                @if (User.IsInRole("Admin"))
+                {
+                    <form method="post" asp-page-handler="CreateDataset" class="create-form create-subject-form p-3 border rounded bg-light mb-4">
+                        @Html.AntiForgeryToken()
+                        <div class="mb-2">
+                            <input name="name" type="text" placeholder="Tên môn học (Ví dụ: PRN222)" required class="form-control form-control-sm" />
+                        </div>
+                        <div class="mb-2">
+                            <textarea name="description" rows="2" placeholder="Mô tả ngắn gọn về môn học..." class="form-control form-control-sm"></textarea>
+                        </div>
+                        
+                        <div class="form-check mb-2">
+                            <input class="form-check-input" type="checkbox" name="isPublic" id="isPublic" value="true" checked />
+                            <label class="form-check-label small text-secondary" for="isPublic">Công khai môn học</label>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary btn-sm w-100 fw-bold">Tạo môn học mới</button>
+                    </form>
+                }
+
+                <div class="dataset-list d-flex flex-column gap-2" aria-live="polite">
+                    @if (Model.Datasets.Count == 0)
+                    {
+                        <p class="helper-text text-muted small text-center my-4">Chưa có môn học nào được gán hoặc kích hoạt cho tài khoản này.</p>
+                    }
+                    @foreach (var ds in Model.Datasets)
+                    {
+                        <div class="dataset-row p-3 border rounded bg-white d-flex justify-content-between align-items-center">
+                            <a class="dataset-item text-decoration-none text-dark flex-grow-1" href="?datasetId=@ds.DatasetId">
+                                <div class="dataset-name dataset-name-row fw-bold" style="font-size: 0.95rem;">
+                                    @ds.Name
+                                    @if (!ds.IsApproved)
+                                    {
+                                        <span class="badge bg-warning text-dark ms-2" style="font-size: 0.7rem;">Chờ Duyệt</span>
+                                    }
+                                </div>
+                                <div class="dataset-meta text-muted small mt-1" style="font-size: 0.78rem;">
+                                    @ds.DocumentCount tài liệu
+                                    @if (!ds.IsPublic)
+                                    {
+                                        <span class="badge bg-light text-secondary ms-2 border" style="font-size: 0.7rem;">Riêng tư</span>
+                                    }
+                                </div>
+                            </a>
+
+                            @if (User.IsInRole("Admin") || ds.CreatedBy == Model.SelectedUserId)
+                            {
+                                <form method="post" asp-page-handler="DeleteDataset" class="dataset-delete-form m-0" onsubmit="return confirm('Xóa môn học này sẽ đồng thời xóa toàn bộ tài liệu bên trong?');">
+                                    @Html.AntiForgeryToken()
+                                    <input type="hidden" name="id" value="@ds.DatasetId" />
+                                    <button class="btn btn-outline-danger btn-sm" type="submit" title="Xóa môn học">Xóa</button>
+                                </form>
+                            }
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+
+        <!-- Báo cáo thống kê -->
+        <details class="statistics-details mt-4 border rounded p-2">
+            <summary class="fw-bold small text-secondary d-flex justify-content-between align-items-center" style="cursor: pointer;">
+                <span>Thống kê Workspace</span>
+                <i class="bi bi-chevron-down"></i>
+            </summary>
+            <div class="statistics-grid d-flex justify-content-around mt-3 text-center">
+                <div>
+                    <span class="d-block text-muted small">Tài liệu</span>
+                    <strong class="text-dark">@Model.Documents.Count</strong>
+                </div>
+                <div>
+                    <span class="d-block text-muted small">Phòng chat</span>
+                    <strong class="text-dark">@Model.Sessions.Count</strong>
+                </div>
+                <div>
+                    <span class="d-block text-muted small">Số câu hỏi</span>
+                    <strong class="text-dark">@Model.MessageHistory.Count</strong>
+                </div>
+            </div>
+        </details>
+    </aside>
+
+    <!-- Cột 2: Giao diện Hội thoại (Chat Panel) -->
+    <main class="chat-panel shadow-sm bg-white" aria-label="Chat interface">
+        <div class="chat-header d-flex justify-content-between align-items-center p-3 border-bottom">
+            <div>
+                <p class="eyebrow text-uppercase mb-1">Cuộc hội thoại</p>
+                @if (Model.SelectedSession != null)
+                {
+                    <h4 class="fw-bold text-dark m-0" data-chat-title>@Model.SelectedSession.Title</h4>
+                }
+                else if (Model.SelectedDataset != null)
+                {
+                    <h4 class="fw-bold text-secondary m-0" data-chat-title>Chọn hoặc tạo mới một cuộc trò chuyện</h4>
+                }
+                else
+                {
+                    <h4 class="fw-bold text-secondary m-0" data-chat-title>Chọn một môn học để bắt đầu học tập</h4>
+                }
+            </div>
+            @if (Model.SelectedDatasetId.HasValue)
+            {
+                <form method="post" asp-page-handler="CreateSession" class="inline-form m-0">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="datasetId" value="@Model.SelectedDatasetId" />
+                    <input type="hidden" name="title" value="Trò chuyện môn học" />
+                    <button class="btn btn-outline-primary btn-sm px-3 fw-bold" style="border-radius: var(--radius-sm);" type="submit">Phòng mới</button>
+                </form>
+            }
+        </div>
+
+        <div class="chat-stream p-4 overflow-y-auto" aria-live="polite" id="chatStream" style="height: calc(100% - 130px); max-height: 70vh;">
+            @if (Model.SelectedSession != null)
+            {
+                if (Model.MessageHistory.Count == 0)
+                {
+                    <div class="empty-state text-center py-5">
+                        <i class="bi bi-chat-left-dots text-primary" style="font-size: 3rem;"></i>
+                        <h4 class="fw-bold text-dark mt-3">Đặt câu hỏi dựa trên tài liệu học tập của bạn</h4>
+                        <p class="text-muted small mx-auto" style="max-width: 480px;">AI sẽ tự động đối sánh, trích lọc thông tin từ các tài liệu được giảng viên tải lên trong môn học này để phản hồi chính xác nhất.</p>
+                    </div>
+                }
+                else
+                {
+                    @foreach (var msg in Model.MessageHistory)
+                    {
+                        <div class="message @msg.Role.ToLower() mb-4">
+                            <div class="message-bubble p-3 rounded shadow-sm @(msg.Role == "User" ? "bg-primary text-white ms-auto" : "bg-light text-dark")" style="max-width: 80%; width: fit-content;">
+                                <p class="message-text m-0" style="white-space: pre-wrap; font-size: 0.92rem;">@msg.Content</p>
+                            </div>
+                            <div class="message-meta small text-muted mt-1 @(msg.Role == "User" ? "text-end" : "")" style="font-size: 0.75rem;">
+                                @(msg.Role == "User" ? "Bạn" : "Trợ lý AI") &bull; @VietnamTime.Format(msg.CreatedAt, "HH:mm")
+                            </div>
+                            @if (msg.Role == "Assistant")
+                            {
+                                <div class="citation-row mt-2">
+                                    <button class="btn btn-light btn-sm border px-3 py-1 view-sources-btn" style="border-radius: 99px; font-size: 0.78rem;" 
+                                            data-message-id="@msg.MessageId">
+                                        Xem nguồn trích dẫn
+                                    </button>
+                                </div>
+                            }
+                        </div>
+                    }
+                }
+            }
+            else
+            {
+                <div class="empty-state text-center py-5">
+                    <i class="bi bi-journal-bookmark text-primary" style="font-size: 3.5rem;"></i>
+                    <h4 class="fw-bold text-dark mt-3">Học Tập Thông Minh Với RAG Chatbot</h4>
+                    <p class="text-muted small mx-auto" style="max-width: 480px;">Chọn một môn học bên cột trái, khởi tạo một phòng chat và bắt đầu đặt câu hỏi cho AI dựa trên hệ thống tài liệu.</p>
+                </div>
+            }
+        </div>
+
+        @if (Model.SelectedSessionId.HasValue)
+        {
+            <form method="post" asp-page-handler="SendMessage" class="composer p-3 border-top d-flex gap-2 align-items-center">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="datasetId" value="@Model.SelectedDatasetId" />
+                <input type="hidden" name="sessionId" value="@Model.SelectedSessionId" />
+                <textarea name="question" rows="1" placeholder="Nhập câu hỏi về môn học này..." required id="chatQuestionTextarea" class="form-control" style="resize: none; border-radius: var(--radius);"></textarea>
+                <button type="submit" class="btn btn-primary px-4 py-2 fw-bold" style="border-radius: var(--radius);">Gửi</button>
+            </form>
+        }
+    </main>
+
+    <!-- Cột 3: Hiển thị trích dẫn tài liệu tham chiếu (Reference Panel) -->
+    <aside class="workspace-panel reference-panel shadow-sm" aria-label="Citation references">
+        <div class="panel-header">
+            <div>
+                <p class="eyebrow text-uppercase">Tài liệu đối sánh</p>
+                <h2>Nguồn gốc</h2>
+            </div>
+            <button class="close-reference-btn btn btn-light btn-sm rounded" type="button" title="Đóng bảng">✕</button>
+        </div>
+
+        @if (Model.SelectedMessageId.HasValue && Model.Citations.Count > 0)
+        {
+            <div class="reference-content d-flex flex-column gap-3 p-3">
+                @foreach (var c in Model.Citations)
+                {
+                    <div class="reference-card p-3 border rounded bg-light">
+                        <h5 class="fw-bold text-dark mb-1 text-truncate" title="@c.FileName">@c.FileName</h5>
+                        <p class="small text-muted mb-2">Trang: @(c.PageNumber > 0 ? c.PageNumber.ToString() : "1") &bull; Nhãn: @c.SourceLabel</p>
+                        <blockquote class="reference-quote p-2 border-start border-4 bg-white m-0" style="font-size: 0.84rem; border-color: var(--accent) !important; font-style: italic;">
+                            "@c.QuoteText"
+                        </blockquote>
+                    </div>
+                }
+            </div>
+        }
+        else
+        {
+            <div class="reference-empty text-center py-5 text-muted">
+                <i class="bi bi-bookmark-x" style="font-size: 2rem;"></i>
+                <h5 class="fw-bold mt-2">Chưa chọn trích dẫn</h5>
+                <p class="small px-4 mt-1">Khi phản hồi của AI có các liên kết đối sánh nguồn gốc, bấm vào "Xem nguồn trích dẫn" để kiểm tra văn bản gốc.</p>
+            </div>
+        }
+    </aside>
+</section>
+
+<!-- Modal xem chi tiết phân đoạn & Vector Embeddings -->
+<div id="chunksModal" class="modal-backdrop" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(15, 23, 42, 0.5); backdrop-filter: blur(8px); justify-content: center; align-items: center; z-index: 9999;">
+    <div class="modal-dialog bg-white shadow-lg d-flex flex-column" style="border-radius: var(--radius); width: min(90%, 800px); max-height: 80vh;">
+        <div class="modal-header d-flex justify-content-between align-items-center p-3 border-bottom">
+            <div>
+                <h5 class="modal-title fw-bold text-dark m-0" id="modalDocTitle">Chi tiết Vector</h5>
+                <small class="text-muted" id="modalDocSub">Thông tin phân đoạn pgvector database</small>
+            </div>
+            <button type="button" class="btn-close btn btn-light btn-sm" id="closeChunksModal">&times;</button>
+        </div>
+        <div class="modal-body overflow-y-auto p-4" id="modalChunksBody" style="flex: 1;">
+            <!-- Chunks will be dynamically populated here -->
+        </div>
+    </div>
+</div>
+
+<!-- Overlay tiến trình tải tài liệu -->
+<div id="documentProcessingOverlay" class="processing-overlay" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(8px); justify-content: center; align-items: center; z-index: 9999;">
+    <div class="processing-dialog bg-white p-4 text-center shadow-lg" style="border-radius: var(--radius); max-width: 480px; width: min(90%, 480px);">
+        <div class="spinner-border text-primary mb-3" role="status" style="width: 3rem; height: 3rem;"></div>
+        <h4 class="fw-bold text-dark mb-2">Đang xử lý tài liệu...</h4>
+        <p class="text-muted small mb-0">Hệ thống đang trích xuất văn bản, cắt phân đoạn và nhúng vector pgvector vào cơ sở dữ liệu. Vui lòng giữ trang này mở.</p>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        // Tự động cuộn khung chat xuống dưới cùng khi có tin nhắn mới hoặc tải trang
+        const chatStream = document.getElementById("chatStream");
+        if (chatStream) {
+            chatStream.scrollTop = chatStream.scrollHeight;
+        }
+
+        const uploadDocForm = document.getElementById("upload-doc-form");
+        const fileUploadInput = document.getElementById("file-upload");
+        const processingOverlay = document.getElementById("documentProcessingOverlay");
+        if (uploadDocForm && processingOverlay) {
+            uploadDocForm.addEventListener("submit", function () {
+                processingOverlay.style.display = "flex";
+            });
+        }
+        
+        function escapeHtml(str) {
+            if (!str) return "";
+            return str
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+
+        // Hỗ trợ gửi tin nhắn bằng tổ hợp phím Enter
+        const textarea = document.getElementById("chatQuestionTextarea");
+        if (textarea) {
+            textarea.addEventListener("keydown", function(e) {
+                if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    this.form.dispatchEvent(new Event("submit", { cancelable: true }));
+                }
+            });
+        }
+
+        // Xử lý gửi tin nhắn bằng AJAX & Real-time SignalR chunk streaming
+        const composerForm = document.querySelector(".composer");
+        if (composerForm) {
+            composerForm.addEventListener("submit", function(e) {
+                e.preventDefault();
+                
+                const questionInput = document.getElementById("chatQuestionTextarea");
+                if (!questionInput) return;
+                const question = questionInput.value.trim();
+                if (!question) return;
+                
+                // Clear textarea immediately
+                questionInput.value = "";
+                questionInput.style.height = "auto";
+                
+                // 1. Hiển thị tin nhắn của User ngay lập tức
+                appendMessage("user", question, formatVietnamTime(new Date()));
+                
+                // 2. Thêm bong bóng chờ của Assistant có chứa container chứa streaming chunk
+                const assistantMessageId = "temp-streaming-msg-" + Date.now();
+                const loadingBubble = appendStreamingBubble(assistantMessageId);
+                
+                // Cuộn xuống cuối
+                if (chatStream) {
+                    chatStream.scrollTop = chatStream.scrollHeight;
+                }
+                
+                // 3. Gọi AJAX để báo cho server bắt đầu xử lý và đẩy dữ liệu
+                const formData = new FormData(composerForm);
+                formData.set("question", question);
+                
+                // Razor Pages antiforgery token
+                const requestVerificationToken = document.querySelector('input[name="__RequestVerificationToken"]').value;
+
+                fetch("?handler=SendMessageAjax", {
+                    method: "POST",
+                    body: formData,
+                    headers: {
+                        "RequestVerificationToken": requestVerificationToken
+                    }
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        return response.json().then(data => { throw new Error(data.error || "Gửi tin nhắn thất bại.") });
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    // Yêu cầu kết thúc thành công, các chunk sẽ được tự động hoàn thiện bởi SignalR
+                    // AJAX response có thể chứa toàn bộ tin nhắn để bảo phòng khi SignalR kết nối chập chờn
+                    console.log("AJAX request completed.", data);
+                })
+                .catch(err => {
+                    console.error(err);
+                    const bubble = document.getElementById(assistantMessageId);
+                    if (bubble) {
+                        bubble.innerHTML = `
+                            <div class="message-bubble bg-danger-soft text-danger">
+                                <p class="message-text m-0">❌ Lỗi: ${err.message}</p>
+                            </div>
+                            <div class="message-meta small text-muted mt-1">Trợ lý AI &bull; Lỗi</div>
+                        `;
+                    }
+                });
+            });
+        }
+
+        function appendMessage(role, content, time, messageId = null) {
+            const emptyState = chatStream.querySelector(".empty-state");
+            if (emptyState) emptyState.remove();
+
+            const messageDiv = document.createElement("div");
+            messageDiv.className = `message ${role} mb-4`;
+            if (role === "user") {
+                messageDiv.innerHTML = `
+                    <div class="message-bubble p-3 rounded shadow-sm bg-primary text-white ms-auto" style="max-width: 80%; width: fit-content;">
+                        <p class="message-text m-0" style="white-space: pre-wrap; font-size: 0.92rem;">${escapeHtml(content)}</p>
+                    </div>
+                    <div class="message-meta small text-muted mt-1 text-end" style="font-size: 0.75rem;">Bạn &bull; ${time}</div>
+                `;
+            } else {
+                let citationHtml = "";
+                if (messageId) {
+                    citationHtml = `
+                        <div class="citation-row mt-2">
+                            <button class="btn btn-light btn-sm border px-3 py-1 view-sources-btn" style="border-radius: 99px; font-size: 0.78rem;" 
+                                    data-message-id="${messageId}">
+                                Xem nguồn trích dẫn
+                            </button>
+                        </div>
+                    `;
+                }
+                messageDiv.innerHTML = `
+                    <div class="message-bubble p-3 rounded shadow-sm bg-light text-dark" style="max-width: 80%; width: fit-content;">
+                        <p class="message-text m-0" style="white-space: pre-wrap; font-size: 0.92rem;">${escapeHtml(content)}</p>
+                    </div>
+                    <div class="message-meta small text-muted mt-1" style="font-size: 0.75rem;">Trợ lý AI &bull; ${time}</div>
+                    ${citationHtml}
+                `;
+            }
+            chatStream.appendChild(messageDiv);
+        }
+
+        function appendStreamingBubble(msgId) {
+            const emptyState = chatStream.querySelector(".empty-state");
+            if (emptyState) emptyState.remove();
+
+            const loadingDiv = document.createElement("div");
+            loadingDiv.className = "message assistant mb-4";
+            loadingDiv.id = msgId;
+            loadingDiv.innerHTML = `
+                <div class="message-bubble p-3 rounded shadow-sm bg-light text-dark d-flex align-items-center gap-2" style="max-width: 80%; width: fit-content;">
+                    <div class="spinner-border spinner-border-sm text-primary" role="status" id="${msgId}-spinner"></div>
+                    <p class="message-text m-0" id="${msgId}-text" style="white-space: pre-wrap; font-size: 0.92rem;"></p>
+                </div>
+                <div class="message-meta small text-muted mt-1" style="font-size: 0.75rem;">Trợ lý AI &bull; Đang xử lý...</div>
+            `;
+            chatStream.appendChild(loadingDiv);
+            return loadingDiv;
+        }
+
+        function formatVietnamTime(value) {
+            return new Intl.DateTimeFormat("vi-VN", {
+                timeZone: "Asia/Ho_Chi_Minh",
+                hour: "2-digit",
+                minute: "2-digit",
+                hour12: false
+            }).format(value);
+        }
+
+        // Lắng nghe click xem trích dẫn
+        document.addEventListener("click", function(e) {
+            const btn = e.target.closest(".view-sources-btn");
+            if (btn) {
+                e.preventDefault();
+                const messageId = btn.getAttribute("data-message-id");
+                fetchCitations(messageId);
+            }
+            const closeBtn = e.target.closest(".close-reference-btn");
+            if (closeBtn) {
+                e.preventDefault();
+                const workspace = document.querySelector(".workspace");
+                if (workspace) workspace.classList.remove("citations-active");
+            }
+        });
+
+        function fetchCitations(messageId) {
+            const referencePanel = document.querySelector(".reference-panel");
+            if (!referencePanel) return;
+            const workspace = document.querySelector(".workspace");
+            if (workspace) workspace.classList.add("citations-active");
+
+            referencePanel.innerHTML = `
+                <div class="panel-header">
+                    <div>
+                        <p class="eyebrow text-uppercase">Tài liệu đối sánh</p>
+                        <h2>Nguồn gốc</h2>
+                    </div>
+                    <button class="close-reference-btn btn btn-light btn-sm rounded" type="button" title="Đóng bảng">✕</button>
+                </div>
+                <div class="text-center py-5">
+                    <div class="spinner-border text-primary spinner-border-sm mb-2" role="status"></div>
+                    <p class="small text-muted">Đang tải tài liệu tham chiếu...</p>
+                </div>
+            `;
+
+            // Chuyển tab trên di động
+            if (workspace && window.innerWidth <= 820) {
+                workspace.setAttribute("data-active-tab", "reference-panel");
+                const refTabBtn = document.querySelector('.mobile-tab-btn[data-target="reference-panel"]');
+                if (refTabBtn) {
+                    document.querySelectorAll(".mobile-tab-btn").forEach(b => b.classList.remove("active"));
+                    refTabBtn.classList.add("active");
+                }
+            }
+
+            fetch(`?handler=GetCitations&messageId=${messageId}`)
+                .then(response => {
+                    if (!response.ok) throw new Error("Failed to load citations");
+                    return response.json();
+                })
+                .then(citations => {
+                    renderCitationsDirectly(citations);
+                })
+                .catch(err => {
+                    console.error(err);
+                    referencePanel.innerHTML = `
+                        <div class="panel-header">
+                            <div>
+                                <p class="eyebrow text-uppercase">Tài liệu đối sánh</p>
+                                <h2>Nguồn gốc</h2>
+                            </div>
+                            <button class="close-reference-btn btn btn-light btn-sm rounded" type="button" title="Đóng bảng">✕</button>
+                        </div>
+                        <div class="text-center py-4 text-danger small">
+                            Lỗi tải nguồn tham chiếu: ${err.message}
+                        </div>
+                    `;
+                });
+        }
+
+        function renderCitationsDirectly(citations) {
+            const referencePanel = document.querySelector(".reference-panel");
+            if (!referencePanel) return;
+            const workspace = document.querySelector(".workspace");
+            if (workspace) workspace.classList.add("citations-active");
+
+            let html = `
+                <div class="panel-header">
+                    <div>
+                        <p class="eyebrow text-uppercase">Tài liệu đối sánh</p>
+                        <h2>Nguồn gốc</h2>
+                    </div>
+                    <button class="close-reference-btn btn btn-light btn-sm rounded" type="button" title="Đóng bảng">✕</button>
+                </div>
+            `;
+
+            if (!citations || citations.length === 0) {
+                html += `
+                    <div class="reference-empty text-center py-5 text-muted">
+                        <i class="bi bi-bookmark-x" style="font-size: 2rem;"></i>
+                        <h5 class="fw-bold mt-2">Không tìm thấy trích dẫn</h5>
+                        <p class="small px-4 mt-1">Câu trả lời này không dựa trên phân đoạn cụ thể nào từ tài liệu.</p>
+                    </div>
+                `;
+            } else {
+                html += `<div class="reference-content d-flex flex-column gap-3 p-3">`;
+                citations.forEach(c => {
+                    html += `
+                        <div class="reference-card p-3 border rounded bg-light">
+                            <h5 class="fw-bold text-dark mb-1 text-truncate" title="${escapeHtml(c.fileName)}">${escapeHtml(c.fileName)}</h5>
+                            <p class="small text-muted mb-2">Trang: ${c.pageNumber > 0 ? c.pageNumber : 1} &bull; Nhãn: ${escapeHtml(c.sourceLabel || "N/A")}</p>
+                            <blockquote class="reference-quote p-2 border-start border-4 bg-white m-0" style="font-size: 0.84rem; border-color: var(--accent) !important; font-style: italic;">
+                                "${escapeHtml(c.quoteText)}"
+                            </blockquote>
+                        </div>
+                    `;
+                });
+                html += `</div>`;
+            }
+            referencePanel.innerHTML = html;
+        }
+
+        // Chuyển đổi tab mobile
+        const tabBtns = document.querySelectorAll(".mobile-tab-btn");
+        const workspaceEl = document.querySelector(".workspace");
+        if (tabBtns && workspaceEl) {
+            tabBtns.forEach(btn => {
+                btn.addEventListener("click", () => {
+                    tabBtns.forEach(b => b.classList.remove("active"));
+                    btn.classList.add("active");
+                    const target = btn.getAttribute("data-target");
+                    workspaceEl.setAttribute("data-active-tab", target);
+                });
+            });
+        }
+
+        function triggerUpload() {
+            const fileInput = document.getElementById('file-upload');
+            const uploadForm = document.getElementById('upload-doc-form');
+            if (!fileInput || !uploadForm || uploadForm.dataset.submitting === "true") {
+                return;
+            }
+
+            if (fileInput && fileInput.files && fileInput.files.length > 0) {
+                const file = fileInput.files[0];
+                const maxSize = 50 * 1024 * 1024;
+                if (file.size > maxSize) {
+                    alert('Kích thước tệp vượt quá giới hạn cho phép (tối đa 50MB).');
+                    fileInput.value = "";
+                    return;
+                }
+            } else {
+                return;
+            }
+
+            const dropzone = document.getElementById('upload-dropzone');
+            const idleState = document.getElementById('upload-idle-state');
+            const loadingState = document.getElementById('upload-loading-state');
+
+            uploadForm.dataset.submitting = "true";
+            if (dropzone) {
+                dropzone.dataset.uploading = "true";
+                dropzone.style.cursor = "not-allowed";
+            }
+            if (idleState) idleState.style.display = "none";
+            if (loadingState) loadingState.style.display = "flex";
+            if (processingOverlay) processingOverlay.style.display = "flex";
+
+            uploadForm.submit();
+        }
+
+        // Xem phân đoạn & Vector Embeddings pgvector
+        document.addEventListener("click", function(e) {
+            const btn = e.target.closest(".view-chunks-btn");
+            if (btn) {
+                e.preventDefault();
+                const docId = btn.getAttribute("data-document-id");
+                const docName = btn.getAttribute("data-document-name");
+                openChunksModal(docId, docName);
+            }
+        });
+
+        const chunksModal = document.getElementById("chunksModal");
+        const closeChunksModalBtn = document.getElementById("closeChunksModal");
+        if (closeChunksModalBtn && chunksModal) {
+            closeChunksModalBtn.onclick = function() {
+                chunksModal.style.display = "none";
+            }
+            window.onclick = function(event) {
+                if (event.target == chunksModal) {
+                    chunksModal.style.display = "none";
+                }
+            }
+        }
+
+        function openChunksModal(docId, docName) {
+            if (!chunksModal) return;
+            
+            document.getElementById("modalDocTitle").innerText = docName;
+            document.getElementById("modalDocSub").innerText = "Đang tải dữ liệu phân đoạn pgvector từ CSDL...";
+            
+            const body = document.getElementById("modalChunksBody");
+            body.innerHTML = `
+                <div class="text-center py-5">
+                    <div class="spinner-border text-primary mb-2" role="status"></div>
+                    <p class="small text-muted">Đang truy vấn bảng lưu trữ pgvector và embeddings...</p>
+                </div>
+            `;
+            
+            chunksModal.style.display = "flex";
+            
+            fetch(`?handler=GetChunks&documentId=${docId}`)
+                .then(response => {
+                    if (!response.ok) throw new Error("Failed to load chunks");
+                    return response.json();
+                })
+                .then(chunks => {
+                    document.getElementById("modalDocSub").innerText = `Tìm thấy ${chunks.length} phân đoạn được tạo cho tài liệu này.`;
+                    
+                    if (chunks.length === 0) {
+                        body.innerHTML = `
+                            <p class="text-muted text-center py-4">Chưa có phân đoạn nào. Tài liệu có thể đang chờ xử lý.</p>
+                        `;
+                        return;
+                    }
+                    
+                    let html = "";
+                    chunks.forEach((c, idx) => {
+                        let vecPreview = "Embedding vector: Không tìm thấy dữ liệu vector.";
+                        if (c.embedding && c.embedding.length > 0) {
+                            const dimensions = c.embedding.length;
+                            const previewValues = c.embedding.slice(0, 8).map(v => v.toFixed(5)).join(", ");
+                            vecPreview = `pgvector Embedding [${dimensions} dimensions] - 8 chiều đầu tiên: [ ${previewValues}, ... ]`;
+                        }
+                        
+                        html += `
+                            <div class="chunk-card p-3 border rounded mb-3 bg-light">
+                                <div class="d-flex justify-content-between small text-secondary mb-2 fw-bold">
+                                    <span>Phân đoạn: #${idx + 1}</span>
+                                    <span>Trang: ${c.pageNumber > 0 ? c.pageNumber : 1}</span>
+                                </div>
+                                <p class="chunk-text-content m-0 bg-white p-2 border rounded" style="font-size: 0.88rem; white-space: pre-wrap;">${escapeHtml(c.content)}</p>
+                                <div class="vector-preview-box small text-muted mt-2 p-2 bg-dark text-light rounded font-monospace" style="font-size: 0.75rem;" title="Biểu diễn toán học vector trong không gian pgvector">
+                                    ${vecPreview}
+                                </div>
+                            </div>
+                        `;
+                    });
+                    
+                    body.innerHTML = html;
+                })
+                .catch(err => {
+                    console.error(err);
+                    document.getElementById("modalDocSub").innerText = "Lỗi tải phân đoạn.";
+                    body.innerHTML = `<div class="text-danger small text-center py-4">Lỗi: ${err.message}</div>`;
+                });
+        }
+
+        // Chuyển tab trong sidebar
+        document.querySelectorAll(".sidebar-tab-btn").forEach(btn => {
+            btn.addEventListener("click", function() {
+                document.querySelectorAll(".sidebar-tab-btn").forEach(b => b.classList.remove("active"));
+                this.classList.add("active");
+                
+                const targetTab = this.getAttribute("data-tab");
+                document.querySelectorAll(".sidebar-tab-content").forEach(content => {
+                    content.style.display = content.id === targetTab ? "block" : "none";
+                });
+            });
+        });
+
+        // ----------------- Tích Hợp SignalR Real-Time Client -----------------
+        document.addEventListener("DOMContentLoaded", function () {
+            // 1. Nhóm Connection Trò Chuyện (Chat Hub)
+            @if (Model.SelectedSessionId.HasValue)
+            {
+                <text>
+                const chatConnection = new signalR.HubConnectionBuilder()
+                    .withUrl("/hubs/chat")
+                    .withAutomaticReconnect()
+                    .build();
+
+                // Lắng nghe nhận chunk stream theo thời gian thực
+                chatConnection.on("ReceiveChatChunk", function (messageId, chunkText) {
+                    // Tìm container của tin nhắn trợ lý đang stream hiện tại
+                    // Chúng ta sử dụng ID tạm thời được tạo khi Submit
+                    // Nếu không thấy, chúng ta sẽ tự tạo ra một cái mới dựa trên messageId thực tế từ server
+                    let textContainer = document.querySelector('.message.assistant p[id$="-text"]');
+                    let spinner = null;
+                    
+                    if (!textContainer) {
+                        // Tạo mới bong bóng assistant stream
+                        const tempMsgId = "temp-streaming-msg-" + messageId;
+                        appendStreamingBubble(tempMsgId);
+                        textContainer = document.getElementById(tempMsgId + "-text");
+                        spinner = document.getElementById(tempMsgId + "-spinner");
+                    } else {
+                        // Lấy spinner hiện có
+                        const tempMsgId = textContainer.id.replace("-text", "");
+                        spinner = document.getElementById(tempMsgId + "-spinner");
+                    }
+                    
+                    if (textContainer) {
+                        textContainer.textContent += chunkText;
+                        if (chatStream) chatStream.scrollTop = chatStream.scrollHeight;
+                    }
+                });
+
+                // Lắng nghe hoàn tất câu trả lời của AI
+                chatConnection.on("ReceiveChatComplete", function (assistantMessageDto, citations) {
+                    // Tìm tin nhắn đang stream hiện tại và thay thế bằng nội dung chuẩn chỉ cùng các nút trích dẫn
+                    const textContainer = document.querySelector('.message.assistant p[id$="-text"]');
+                    if (textContainer) {
+                        const tempDiv = textContainer.closest('.message.assistant');
+                        if (tempDiv) {
+                            const timeStr = formatVietnamTime(new Date());
+                            let citationHtml = "";
+                            if (citations && citations.length > 0) {
+                                citationHtml = `
+                                    <div class="citation-row mt-2">
+                                        <button class="btn btn-light btn-sm border px-3 py-1 view-sources-btn" style="border-radius: 99px; font-size: 0.78rem;" 
+                                                data-message-id="${assistantMessageDto.messageId}">
+                                            Xem nguồn trích dẫn
+                                        </button>
+                                    </div>
+                                `;
+                            }
+                            
+                            tempDiv.id = assistantMessageDto.messageId;
+                            tempDiv.innerHTML = `
+                                <div class="message-bubble p-3 rounded shadow-sm bg-light text-dark" style="max-width: 80%; width: fit-content;">
+                                    <p class="message-text m-0" style="white-space: pre-wrap; font-size: 0.92rem;">${escapeHtml(assistantMessageDto.content)}</p>
+                                </div>
+                                <div class="message-meta small text-muted mt-1" style="font-size: 0.75rem;">Trợ lý AI &bull; ${timeStr}</div>
+                                ${citationHtml}
+                            `;
+                            
+                            if (citations && citations.length > 0) {
+                                renderCitationsDirectly(citations);
+                            }
+                        }
+                    }
+                    
+                    if (chatStream) {
+                        chatStream.scrollTop = chatStream.scrollHeight;
+                    }
+                });
+
+                chatConnection.start()
+                    .then(function () {
+                        console.log("Connected to ChatHub. Joining group session_@Model.SelectedSessionId");
+                        chatConnection.invoke("JoinSession", "@Model.SelectedSessionId")
+                            .catch(err => console.error("Error joining group:", err.toString()));
+                    })
+                    .catch(err => console.error("Error connecting to ChatHub:", err.toString()));
+                </text>
+            }
+
+            // 2. Nhóm Connection Tài Liệu (Document Hub)
+            @if (Model.SelectedDatasetId.HasValue)
+            {
+                <text>
+                const docConnection = new signalR.HubConnectionBuilder()
+                    .withUrl("/hubs/document")
+                    .withAutomaticReconnect()
+                    .build();
+
+                // Lắng nghe cập nhật tiến trình xử lý văn bản (PDF/Word extract, chunking, embedding)
+                docConnection.on("ReceiveDocumentProgress", function (documentId, status, percentComplete) {
+                    const docRow = document.querySelector(`.document-item[data-document-id="${documentId}"]`);
+                    if (docRow) {
+                        // Cập nhật nhãn trạng thái
+                        const statusPill = docRow.querySelector('.status-pill');
+                        if (statusPill) {
+                            statusPill.textContent = status;
+                            statusPill.className = `status-pill badge ${status.toLowerCase() === 'completed' ? 'bg-success-soft text-success' : 'bg-warning-soft text-warning'}`;
+                        }
+                        
+                        // Cập nhật thanh tiến trình
+                        const progressBar = docRow.querySelector('.progress-bar');
+                        if (progressBar) {
+                            progressBar.style.width = percentComplete + "%";
+                            progressBar.setAttribute("aria-valuenow", percentComplete);
+                            if (percentComplete >= 100 || status.toLowerCase() === 'completed') {
+                                progressBar.className = "progress-bar progress-fill bg-success";
+                                // Nếu vừa hoàn thành, đóng overlay xử lý (nếu đang tải tài liệu)
+                                if (processingOverlay) {
+                                    processingOverlay.style.display = "none";
+                                }
+                            } else {
+                                progressBar.className = "progress-bar progress-fill bg-primary progress-bar-striped progress-bar-animated";
+                            }
+                        }
+                    }
+                });
+
+                // Lắng nghe UI update để reload dữ liệu khi giáo viên hoặc admin xóa/cập nhật tài liệu
+                docConnection.on("TriggerUiUpdate", function (entityType, entityId) {
+                    if (entityType === "Document" || entityType === "Dataset") {
+                        // Tải lại trang sau 1 giây để đồng bộ hóa
+                        setTimeout(() => { location.reload(); }, 1000);
+                    }
+                });
+
+                docConnection.start()
+                    .then(function () {
+                        console.log("Connected to DocumentHub. Joining group dataset_@Model.SelectedDatasetId");
+                        docConnection.invoke("JoinDataset", "@Model.SelectedDatasetId")
+                            .catch(err => console.error("Error joining group:", err.toString()));
+                    })
+                    .catch(err => console.error("Error connecting to DocumentHub:", err.toString()));
+                </text>
+            }
+        });
+    </script>
+}
